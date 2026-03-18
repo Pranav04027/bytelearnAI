@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ByteLearn — Final Roadmap</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:      #07070e;
+  --s1:      #0d0d18;
+  --s2:      #131322;
+  --b1:      rgba(255,255,255,0.05);
+  --b2:      rgba(255,255,255,0.09);
+  --text:    #dcdcf0;
+  --muted:   #44445e;
+  --muted2:  #6a6a8a;
+
+  /* phase colors */
+  --ca: #ff6b35;   /* S3 infra */
+  --cb: #ffd166;   /* SQS+Lambda */
+  --cc: #06d6a0;   /* AWS Transcribe */
+  --cd: #118ab2;   /* Embeddings */
+  --ce: #7b5ea7;   /* RAG */
+
+  /* future phases - muted */
+  --cf: #3a3a5a;   /* Memory */
+  --cg: #3a3a5a;   /* Adaptive Quiz */
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Geist Mono', monospace;
+  min-height: 100vh;
+  padding-bottom: 140px;
+  overflow-x: hidden;
+}
+
+/* dot grid bg */
+body::before {
+  content:'';
+  position:fixed;inset:0;
+  background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events:none;
+  z-index:0;
+}
+
+.wrap {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 22px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── HEADER ─── */
+.header {
+  padding: 60px 0 0;
+  margin-bottom: 48px;
+}
+
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.title-block {}
+
+.kicker {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted2);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.kicker::after { content:''; flex:1; height:1px; background:var(--b2); max-width:60px; }
+
+h1 {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(36px, 6vw, 62px);
+  font-weight: 400;
+  line-height: 1.0;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+
+h1 em {
+  font-style: italic;
+  color: var(--ca);
+}
+
+.h1-sub {
+  font-size: 12px;
+  color: var(--muted2);
+  font-weight: 300;
+  line-height: 1.7;
+  max-width: 420px;
+}
+
+/* progress card */
+.prog-card {
+  background: var(--s1);
+  border: 1px solid var(--b2);
+  border-radius: 14px;
+  padding: 20px 24px;
+  min-width: 200px;
+  flex-shrink: 0;
+}
+
+.prog-nums {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.prog-done {
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--ca), var(--ce));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.prog-total {
+  font-size: 14px;
+  color: var(--muted2);
+}
+
+.prog-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 12px;
+}
+
+.prog-track {
+  height: 3px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.prog-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--ca), var(--cb), var(--cc), var(--cd), var(--ce));
+  width: 0%;
+  transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+
+.prog-pct {
+  font-size: 11px;
+  color: var(--muted2);
+  text-align: right;
+}
+
+/* ─── ARCHITECTURE DIAGRAM ─── */
+.arch-diagram {
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 36px;
+  overflow-x: auto;
+}
+
+.arch-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted2);
+  margin-bottom: 16px;
+}
+
+.arch-flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: nowrap;
+  min-width: 600px;
+}
+
+.arch-node {
+  background: var(--s2);
+  border: 1px solid var(--b2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.arch-node .service {
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.arch-node .desc {
+  font-size: 9px;
+  color: var(--muted2);
+}
+
+.arch-arrow {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+.arch-break {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 4px 0 4px 80px;
+  gap: 0;
+}
+
+.arch-down {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 6px;
+}
+
+/* ─── FOCUS BADGE ─── */
+.focus-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(6,214,160,0.06);
+  border: 1px solid rgba(6,214,160,0.2);
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin-bottom: 28px;
+  font-size: 12px;
+  color: var(--cc);
+}
+
+.focus-banner strong { font-weight: 600; }
+.focus-dot { width:7px;height:7px;border-radius:50%;background:var(--cc);animation:pulse 2s infinite;flex-shrink:0; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+/* ─── PHASE BLOCKS ─── */
+.section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+  margin: 32px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.section-label::after { content:''; flex:1; height:1px; background:var(--b1); }
+
+.phase-block {
+  margin-bottom: 5px;
+  border-radius: 12px;
+  border: 1px solid var(--b1);
+  overflow: hidden;
+  transition: border-color 0.2s;
+  animation: fadeUp 0.45s ease both;
+}
+
+.phase-block:hover { border-color: var(--b2); }
+
+.phase-block.future {
+  opacity: 0.5;
+}
+.phase-block.future:hover { opacity: 0.7; }
+
+/* stagger */
+.phase-block:nth-child(1){animation-delay:.04s}
+.phase-block:nth-child(2){animation-delay:.08s}
+.phase-block:nth-child(3){animation-delay:.12s}
+.phase-block:nth-child(4){animation-delay:.16s}
+.phase-block:nth-child(5){animation-delay:.20s}
+.phase-block:nth-child(6){animation-delay:.24s}
+.phase-block:nth-child(7){animation-delay:.28s}
+
+.phase-hdr {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--s1);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.phase-hdr:hover { background: var(--s2); }
+
+.phase-pip {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.phase-info { min-width: 0; }
+
+.phase-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.phase-sub {
+  font-size: 10px;
+  color: var(--muted2);
+  font-weight: 300;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phase-tag {
+  font-size: 9px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.phase-mini-bar {
+  width: 60px;
+  height: 2px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 99px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.phase-mini-fill {
+  height: 100%;
+  border-radius: 99px;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+.chevron {
+  font-size: 9px;
+  color: var(--muted);
+  transition: transform 0.25s;
+  flex-shrink: 0;
+}
+.phase-block.open .chevron { transform: rotate(180deg); }
+
+/* ─── PHASE BODY ─── */
+.phase-body {
+  display: none;
+  background: var(--bg);
+  border-top: 1px solid var(--b1);
+}
+.phase-block.open .phase-body { display: block; }
+
+.grp-lbl {
+  padding: 13px 18px 4px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.task {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: start;
+  gap: 11px;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-left: 2px solid transparent;
+  transition: background 0.1s, border-left-color 0.2s;
+}
+
+.task:hover { background: rgba(255,255,255,0.015); }
+
+.task-dot {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: all 0.15s;
+  font-size: 8px;
+  color: transparent;
+  flex-shrink: 0;
+}
+
+.task.done .task-dot { color: #000; }
+
+.task-txt {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text);
+  font-weight: 300;
+  transition: color 0.15s;
+}
+
+.task.done .task-txt {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+}
+
+.tbadge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--b1);
+  color: var(--muted);
+  white-space: nowrap;
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.tbadge.hi { border-color: currentColor; }
+
+/* note */
+.note {
+  margin: 6px 18px 14px;
+  padding: 11px 15px;
+  border-left: 2px solid var(--nc, var(--muted));
+  background: rgba(255,255,255,0.013);
+  border-radius: 0 8px 8px 0;
+  font-size: 11px;
+  color: var(--muted2);
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+.note-hdr {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--nc, var(--muted));
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.note strong { color: var(--text); font-weight: 500; }
+
+/* ─── FUTURE SECTION ─── */
+.future-card {
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin-bottom: 8px;
+  opacity: 0.55;
+}
+
+.future-card-hdr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.future-tag {
+  font-size: 9px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  background: rgba(255,255,255,0.04);
+  color: var(--muted2);
+  border: 1px solid var(--b1);
+}
+
+.future-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted2);
+}
+
+.future-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.future-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+.future-item::before {
+  content: '○';
+  font-size: 9px;
+  color: var(--muted);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+/* ─── RESET ─── */
+.fab {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--s2);
+  border: 1px solid var(--b2);
+  color: var(--muted2);
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  padding: 10px 16px;
+  border-radius: 9px;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  z-index: 999;
+}
+.fab:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(12px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="top-row">
+      <div class="title-block">
+        <div class="kicker">ByteLearn · Final Architecture</div>
+        <h1>Build <em>Roadmap</em></h1>
+        <p class="h1-sub">Serverless AWS pipeline → RAG → Adaptive Learning. Click tasks to tick off. Saved locally.</p>
+      </div>
+      <div class="prog-card">
+        <div class="prog-nums">
+          <span class="prog-done" id="doneN">0</span>
+          <span class="prog-total">/ <span id="totalN">0</span></span>
+        </div>
+        <div class="prog-label">Tasks complete</div>
+        <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+        <div class="prog-pct" id="progPct">0%</div>
+      </div>
+    </div>
+
+    <!-- Architecture flow -->
+    <div class="arch-diagram">
+      <div class="arch-title">🏗 Final Architecture — Clean Mental Model</div>
+      <div class="arch-flow">
+        <div class="arch-node"><div class="service" style="color:var(--ca)">Client</div><div class="desc">presigned URL</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><div class="service" style="color:var(--ca)">S3</div><div class="desc">direct upload</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><div class="service" style="color:var(--cb)">SQS</div><div class="desc">job queued</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><div class="service" style="color:var(--cb)">Lambda</div><div class="desc">worker</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><div class="service" style="color:var(--cc)">Transcribe</div><div class="desc">speech→text</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><div class="service" style="color:var(--cc)">EventBridge</div><div class="desc">on complete</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><div class="service" style="color:var(--cd)">Lambda</div><div class="desc">reads result</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><div class="service" style="color:var(--cd)">FastAPI</div><div class="desc">/embed</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><div class="service" style="color:var(--ce)">MongoDB</div><div class="desc">vectors saved</div></div>
+      </div>
+    </div>
+
+    <!-- Focus banner -->
+    <div class="focus-banner">
+      <div class="focus-dot"></div>
+      <div><strong>Current Focus:</strong> Phases 1–5 — get to RAG first. Memory + adaptive quiz phases are planned but parked until pipeline is solid.</div>
+    </div>
+  </header>
+
+  <!-- ACTIVE PHASES -->
+  <div class="section-label">🎯 Active Build — Phases 1 to 5</div>
+  <div id="activePhases"></div>
+
+  <!-- FUTURE PHASES -->
+  <div class="section-label">🔮 Future Phases — Planned, Not Yet Started</div>
+  <div id="futurePhases"></div>
+
+</div>
+
+<button class="fab" id="resetBtn">↺ reset</button>
+
+<script>
+const STORAGE = 'bytelearn_v4';
+
+// ─── ACTIVE PHASES ───
+const ACTIVE = [
+  {
+    id:'p1', color:'var(--ca)',
+    name:'S3 Infrastructure Migration',
+    sub:'Cloudinary → S3 · IAM · Presigned URLs · CORS',
+    tag:'Phase 01',
+    groups:[
+      { label:'🪣 AWS Setup', tasks:[
+        {id:'a01', text:'Create S3 bucket — block ALL public access, private ACL', badge:'AWS', hi:true},
+        {id:'a02', text:'Create IAM user — least privilege: only s3:GetObject, s3:PutObject, s3:DeleteObject on this bucket only', badge:'IAM', hi:true},
+        {id:'a03', text:'Store AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, S3_BUCKET_NAME in .env', badge:'config'},
+        {id:'a04', text:'Enable S3 CORS policy — allow your frontend origin for GET and PUT', badge:'CORS'},
+      ]},
+      { label:'⚙️ Backend Changes', tasks:[
+        {id:'a05', text:'npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner', badge:'npm'},
+        {id:'a06', text:'Create s3.util.js — generateUploadUrl(key): presigned PUT URL for direct client upload', badge:'util', hi:true},
+        {id:'a07', text:'Create s3.util.js — generatePlaybackUrl(key): presigned GET URL, 3600s expiry', badge:'util', hi:true},
+        {id:'a08', text:'Update Video model: replace cloudinaryUrl → s3Key + s3Bucket', badge:'schema'},
+        {id:'a09', text:'New route: GET /api/upload-url — returns presigned PUT URL + s3Key to client', badge:'route', hi:true},
+        {id:'a10', text:'Update GET /videos/:id — generate fresh presigned GET URL before returning', badge:'code'},
+        {id:'a11', text:'Update DELETE /videos/:id — delete object from S3', badge:'code'},
+        {id:'a12', text:'Remove all Cloudinary SDK references and credentials', badge:'cleanup'},
+      ]},
+      { label:'✅ Test', tasks:[
+        {id:'a13', text:'Client uploads directly to S3 via presigned PUT URL — confirm file appears in S3 console', badge:'test'},
+        {id:'a14', text:'Video plays back via presigned GET URL in frontend', badge:'test'},
+        {id:'a15', text:'Set expiry to 10s — confirm video stops playing after expiry', badge:'test', hi:true},
+      ]},
+      { label:'🎤 Interview', note:true, nc:'var(--ca)', text:'<strong>Why private ACL + presigned URLs?</strong> Videos are private content. A raw S3 URL would be shareable forever. Presigned URLs expire in 1hr — a copied link is useless. Client uploads directly to S3 via presigned PUT URL — your server never touches the file bytes, saving RAM and bandwidth. <strong>Why not Cloudinary?</strong> Cloudinary charges per transformation and delivery. S3 is $0.023/GB. At scale the cost delta is massive. Tradeoff: you lose Cloudinary\'s CDN/transcoding — add CloudFront separately in production.' },
+    ]
+  },
+  {
+    id:'p2', color:'var(--cb)',
+    name:'SQS + Lambda Worker Setup',
+    sub:'AWS SQS · Lambda · DB status tracking · no BullMQ needed',
+    tag:'Phase 02',
+    groups:[
+      { label:'📬 SQS Queue', tasks:[
+        {id:'b01', text:'Create SQS Standard Queue in AWS Console: bytelearn-transcription-queue', badge:'AWS', hi:true},
+        {id:'b02', text:'Note the Queue URL — add to .env as SQS_QUEUE_URL', badge:'config'},
+        {id:'b03', text:'Update IAM policy to also allow sqs:SendMessage on this queue', badge:'IAM'},
+      ]},
+      { label:'⚙️ Node.js: Push to Queue', tasks:[
+        {id:'b04', text:'npm install @aws-sdk/client-sqs', badge:'npm'},
+        {id:'b05', text:'After S3 upload confirmed: send SQS message with { s3Key, videoId, userId }', badge:'code', hi:true},
+        {id:'b06', text:'Add status field to Video model: "PENDING" | "PROCESSING" | "TRANSCRIBED" | "READY" | "FAILED"', badge:'schema', hi:true},
+        {id:'b07', text:'Set video status = "PENDING" when SQS message sent', badge:'code'},
+        {id:'b08', text:'Add GET /api/videos/:id/status route — frontend polls this every 4s', badge:'route'},
+      ]},
+      { label:'⚡ Lambda Worker', tasks:[
+        {id:'b09', text:'Create Lambda function: bytelearn-transcription-trigger', badge:'Lambda', hi:true},
+        {id:'b10', text:'Set SQS as Lambda trigger — batch size: 1', badge:'Lambda'},
+        {id:'b11', text:'Lambda reads s3Key from SQS message body', badge:'code'},
+        {id:'b12', text:'Lambda calls AWS Transcribe: StartTranscriptionJob with s3Key as media URI', badge:'code', hi:true},
+        {id:'b13', text:'Lambda updates video status = "PROCESSING" in DB (Supabase or MongoDB)', badge:'code'},
+        {id:'b14', text:'Set Lambda timeout to 30s, memory 256MB (just triggering, not processing)', badge:'config'},
+      ]},
+      { label:'🎤 Interview', note:true, nc:'var(--cb)', text:'<strong>Why SQS over BullMQ?</strong> BullMQ needs Redis — another service to manage, pay for, keep alive. SQS is fully managed serverless, costs $0 at rest, scales automatically. With AWS credits it\'s the obvious choice. <strong>Why Lambda for the worker?</strong> This Lambda only TRIGGERS Transcribe — it\'s not doing heavy work. Stateless, event-driven, perfect fit. We keep heavy stateful AI work (LangGraph, embeddings) in FastAPI where it belongs. <strong>Decoupled architecture:</strong> If Transcribe is slow, the queue absorbs the backlog. 10 simultaneous uploads don\'t crash the backend.' },
+    ]
+  },
+  {
+    id:'p3', color:'var(--cc)',
+    name:'AWS Transcribe + EventBridge Callback',
+    sub:'Managed speech-to-text · no ffmpeg · EventBridge → Lambda → DB',
+    tag:'Phase 03',
+    groups:[
+      { label:'🎙️ AWS Transcribe Config', tasks:[
+        {id:'c01', text:'Create output S3 bucket: bytelearn-transcripts-output (separate from video bucket)', badge:'AWS'},
+        {id:'c02', text:'Update Lambda IAM role: allow transcribe:StartTranscriptionJob, s3:GetObject on video bucket, s3:PutObject on output bucket', badge:'IAM', hi:true},
+        {id:'c03', text:'In Lambda: set TranscriptionJobName = videoId + timestamp (must be unique)', badge:'code', hi:true},
+        {id:'c04', text:'Set OutputBucketName to your transcripts output bucket in StartTranscriptionJob call', badge:'code'},
+        {id:'c05', text:'AWS Transcribe accepts mp4 directly — no ffmpeg, no audio extraction needed', badge:'note', hi:true},
+      ]},
+      { label:'🔔 EventBridge Rule', tasks:[
+        {id:'c06', text:'Create EventBridge rule: source = aws.transcribe, detail-type = Transcription Job State Change', badge:'EventBridge', hi:true},
+        {id:'c07', text:'Filter: detail.TranscriptionJobStatus = COMPLETED', badge:'EventBridge'},
+        {id:'c08', text:'Set target: a new Lambda function bytelearn-transcription-complete', badge:'Lambda', hi:true},
+      ]},
+      { label:'⚡ Completion Lambda', tasks:[
+        {id:'c09', text:'Lambda reads TranscriptionJobName from EventBridge event', badge:'code'},
+        {id:'c10', text:'Parse videoId from TranscriptionJobName', badge:'code'},
+        {id:'c11', text:'Fetch transcript JSON from output S3 bucket using boto3/SDK', badge:'code', hi:true},
+        {id:'c12', text:'Extract plain text from Transcribe JSON: results.transcripts[0].transcript', badge:'code'},
+        {id:'c13', text:'Save transcript text to Video document in MongoDB', badge:'code'},
+        {id:'c14', text:'Update video status = "TRANSCRIBED"', badge:'code'},
+        {id:'c15', text:'Call FastAPI POST /embed with { transcript, videoId } — trigger embedding pipeline', badge:'code', hi:true},
+      ]},
+      { label:'🎤 Interview', note:true, nc:'var(--cc)', text:'<strong>Why AWS Transcribe over Groq Whisper?</strong> AWS Transcribe accepts mp4 directly — no ffmpeg, no 25MB limit, no chunking logic. It outputs structured JSON with per-word timestamps — richer than raw text. $0.024/min vs managing Groq API keys. With AWS credits it\'s essentially free. Tradeoff: slightly slower (minutes vs seconds) but for async processing that\'s fine. <strong>Why EventBridge over polling?</strong> Transcription takes 2-5 minutes. Polling Lambda every 10s for 5 minutes = 30 unnecessary invocations. EventBridge fires exactly once when complete — event-driven, zero waste.' },
+    ]
+  },
+  {
+    id:'p4', color:'var(--cd)',
+    name:'Vector Embeddings Pipeline',
+    sub:'FastAPI · LangChain splitter · Gemini embeddings · Atlas Vector Search',
+    tag:'Phase 04',
+    groups:[
+      { label:'🐍 FastAPI Setup', tasks:[
+        {id:'d01', text:'Create /ai-engine folder in monorepo workspace', badge:'setup'},
+        {id:'d02', text:'python -m venv venv && pip install fastapi uvicorn langchain langchain-google-genai pymongo python-dotenv', badge:'pip', hi:true},
+        {id:'d03', text:'main.py with GET /health route — confirm Render/Railway can reach it', badge:'code'},
+        {id:'d04', text:'Add GOOGLE_API_KEY, MONGODB_URI to /ai-engine .env', badge:'config'},
+      ]},
+      { label:'📄 Schema', tasks:[
+        {id:'d05', text:'Create TranscriptChunk Mongoose model: { videoId, text, embedding[], chunkIndex, createdAt }', badge:'schema', hi:true},
+      ]},
+      { label:'🔗 Embedding Route', tasks:[
+        {id:'d06', text:'POST /embed: accepts { transcript, videoId }', badge:'route'},
+        {id:'d07', text:'LangChain RecursiveCharacterTextSplitter: chunk_size=300, chunk_overlap=50', badge:'LangChain', hi:true},
+        {id:'d08', text:'GoogleGenerativeAIEmbeddings model="text-embedding-004" — embed each chunk', badge:'LangChain', hi:true},
+        {id:'d09', text:'Return array of { text, embedding, chunkIndex } — completion Lambda saves to MongoDB', badge:'code'},
+        {id:'d10', text:'After bulk insert: update video status = "READY"', badge:'code', hi:true},
+      ]},
+      { label:'🗃️ MongoDB Atlas Vector Index', tasks:[
+        {id:'d11', text:'Atlas → Search → Create Index → Vector Search type', badge:'Atlas', hi:true},
+        {id:'d12', text:'Field: embedding, Dimensions: 768, Similarity: cosine', badge:'Atlas', hi:true},
+        {id:'d13', text:'Add filter field: videoId (scopes search per video)', badge:'Atlas', hi:true},
+        {id:'d14', text:'Test $vectorSearch aggregation in Atlas UI with a sample vector', badge:'test'},
+      ]},
+      { label:'🎤 Interview', note:true, nc:'var(--cd)', text:'<strong>Why LangChain for just text splitting?</strong> RecursiveCharacterTextSplitter handles sentence/paragraph boundaries that a naive split() misses. 50-token overlap prevents concepts being severed at chunk edges. <strong>Critical rule:</strong> same embedding model at ingestion AND query time. Different models = incoherent vector space = garbage retrieval. <strong>Why 768 dimensions?</strong> That\'s Gemini text-embedding-004\'s output size — Atlas index must match exactly. <strong>Why keep FastAPI here?</strong> Lambda has a 10MB deployment package limit — LangChain + dependencies alone exceed that. FastAPI on Render free tier is lightweight and persistently available.' },
+    ]
+  },
+  {
+    id:'p5', color:'var(--ce)',
+    name:'"Ask the Video" — RAG',
+    sub:'$vectorSearch · 0.72 threshold · Gemini Flash · SSE streaming',
+    tag:'Phase 05',
+    groups:[
+      { label:'🔌 Node.js Route', tasks:[
+        {id:'e01', text:'POST /api/videos/:id/ask — protected route, learner only', badge:'route', hi:true},
+        {id:'e02', text:'Call FastAPI POST /embed-query: embed the user\'s question with same Gemini model', badge:'code', hi:true},
+        {id:'e03', text:'$vectorSearch: filter: { videoId: id }, numCandidates: 100, limit: 5', badge:'MongoDB'},
+        {id:'e04', text:'Discard chunks with cosine score < 0.72', badge:'code', hi:true},
+        {id:'e05', text:'If 0 chunks pass: return { answer: "This topic isn\'t covered in this video" }', badge:'UX', hi:true},
+        {id:'e06', text:'Build context string from top chunks', badge:'code'},
+        {id:'e07', text:'System prompt: "Answer ONLY from the transcript below. Do not use outside knowledge."', badge:'prompt', hi:true},
+        {id:'e08', text:'Stream Gemini Flash response via SSE (text/event-stream)', badge:'code', hi:true},
+      ]},
+      { label:'⚡ FastAPI /embed-query Route', tasks:[
+        {id:'e09', text:'POST /embed-query: accepts { question } — returns embedding vector', badge:'route'},
+        {id:'e10', text:'Uses same GoogleGenerativeAIEmbeddings instance as /embed route', badge:'code', hi:true},
+      ]},
+      { label:'🎨 Frontend', tasks:[
+        {id:'e11', text:'Slide-in drawer on video player — right side, toggle button in player controls', badge:'React'},
+        {id:'e12', text:'Message thread — user right-aligned, AI left-aligned', badge:'React'},
+        {id:'e13', text:'"Ask the Video" button visible ONLY when status === "READY"', badge:'UX'},
+        {id:'e14', text:'Stream response word-by-word with EventSource (SSE)', badge:'React', hi:true},
+        {id:'e15', text:'"Not covered in this video" empty state — clean UI, not an error', badge:'UX'},
+        {id:'e16', text:'Disable input while streaming, show typing indicator', badge:'UX'},
+      ]},
+      { label:'🎤 Interview', note:true, nc:'var(--ce)', text:'<strong>Why filter by videoId in $vectorSearch?</strong> Without it, "JWT tokens" retrieves chunks from any video in the DB — wrong grounding. The filter scopes semantic search to this video only. <strong>Why 0.72 threshold?</strong> Below that score, retrieved context is semantically unrelated. Sending bad context to the LLM makes answers worse — better to say "not covered" than confidently hallucinate. <strong>Why SSE over WebSockets?</strong> LLM streaming is server→client only. SSE is simpler, auto-reconnects, no handshake overhead. WebSockets are for bidirectional real-time (chat apps, multiplayer) — overkill here. <strong>Why same embedding model?</strong> Query vector and chunk vectors must live in the same vector space. Mixing models = random retrieval.' },
+    ]
+  },
+];
+
+// ─── FUTURE PHASES ───
+const FUTURE = [
+  {
+    tag: 'Phase 06',
+    title: 'Student Memory Layer — Mem0',
+    items: [
+      'Store semantic memory after quiz: "User struggles with async/await patterns"',
+      'Multi-signal capture: quiz scores + video rewatch timestamps + answer hesitation time',
+      'Only store memory if same concept fails across 2+ quizzes (filter noise)',
+      'Mem0 delete endpoint — GDPR right to erasure',
+      'GET /memories/:userId → natural language summary of student weak points',
+      'Instructor dashboard insight: "60% of students struggle with the JWT section"',
+    ]
+  },
+  {
+    tag: 'Phase 07',
+    title: 'Adaptive Quiz Generator — LangGraph',
+    items: [
+      'LangGraph state: transcript + user_memories + draft_quiz + validation_errors + iteration_count',
+      'Generator Node: Gemini creates quiz — injects Mem0 memories into system prompt',
+      'Critic Node: validates no hallucinations, distinct options, valid JSON schema',
+      'Conditional edge: errors + iteration < 3 → retry Generator, else → END',
+      'recursion_limit=5 guard — no infinite loops',
+      'LangChain components inside nodes: ChatGoogleGenerativeAI, PromptTemplate, JsonOutputParser',
+      'Increasing difficulty: if student aced last quiz on topic X → generate harder variant',
+      'Spaced repetition: resurface weak concepts after 3d / 7d / 14d (Anki pattern)',
+      'Prerequisite detection: failing "async/await" → back up to "callbacks" first',
+    ]
+  },
+  {
+    tag: 'Phase 08',
+    title: 'Rich Memory Signals + Personalized Learning Path',
+    items: [
+      'Track video rewatch timestamps → scrubbed back 3x at 2:34 = confusion signal on that chunk',
+      'Track answer hesitation time → slow + wrong = real gap, slow + right = fragile knowledge',
+      'Track answer patterns → always picks longest option = behavioral signal',
+      'Predicted score: before quiz, estimate performance from memory → flag at-risk students',
+      'Custom learning path: reorder video recommendations based on weak concept graph',
+      'Student dashboard: show their own memory profile — what they\'re strong/weak at',
+    ]
+  },
+  {
+    tag: 'Phase 09',
+    title: 'Frontend Polish',
+    items: [
+      'Step-by-step processing indicator: Uploading → Transcribing → Embedding → Ready',
+      'Poll /status every 4s — stop when READY or FAILED',
+      'Wrong answer: show AI-generated explanation for why correct answer is right',
+      'Quiz shows which weak concept it\'s targeting (from memory)',
+      'Student memory profile page — visualize their learning history',
+    ]
+  },
+];
+
+// ─── State ───
+let state = {};
+try { const s = localStorage.getItem(STORAGE); if(s) state=JSON.parse(s); } catch(e){}
+function save(){ try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch(e){} }
+
+function allIds(){
+  const ids=[];
+  ACTIVE.forEach(p=>p.groups.forEach(g=>{if(g.tasks)g.tasks.forEach(t=>ids.push(t.id));}));
+  return ids;
+}
+
+function updateProgress(){
+  const all=allIds(), done=all.filter(id=>state[id]).length, total=all.length;
+  const pct=total?Math.round((done/total)*100):0;
+  document.getElementById('doneN').textContent=done;
+  document.getElementById('totalN').textContent=total;
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progPct').textContent=pct+'%';
+
+  ACTIVE.forEach(p=>{
+    const ids=[];
+    p.groups.forEach(g=>{if(g.tasks)g.tasks.forEach(t=>ids.push(t.id));});
+    const pd=ids.filter(id=>state[id]).length;
+    const pp=ids.length?(pd/ids.length)*100:0;
+    const bar=document.getElementById('bar_'+p.id);
+    if(bar) bar.style.width=pp+'%';
+  });
+}
+
+function toggleTask(id, color){
+  state[id]=!state[id]; save();
+  const el=document.querySelector(`[data-task="${id}"]`);
+  if(el){
+    el.classList.toggle('done', state[id]);
+    el.style.borderLeftColor = state[id] ? color : 'transparent';
+    const dot = el.querySelector('.task-dot');
+    if(dot){
+      dot.style.background = state[id] ? color : 'transparent';
+      dot.style.borderColor = state[id] ? color : 'var(--muted)';
+    }
+  }
+  updateProgress();
+}
+
+function togglePhase(id){
+  document.getElementById('phase_'+id).classList.toggle('open');
+}
+
+function resetAll(){
+  if(!confirm('Reset all progress?')) return;
+  state={}; save();
+  allIds().forEach(id=>{
+    const el=document.querySelector(`[data-task="${id}"]`);
+    if(el){
+      el.classList.remove('done');
+      el.style.borderLeftColor='transparent';
+      const dot=el.querySelector('.task-dot');
+      if(dot){ dot.style.background='transparent'; dot.style.borderColor='var(--muted)'; }
+    }
+  });
+  updateProgress();
+}
+
+// ─── Render Active ───
+function renderActive(){
+  const container=document.getElementById('activePhases');
+  ACTIVE.forEach(p=>{
+    const block=document.createElement('div');
+    block.className='phase-block';
+    block.id='phase_'+p.id;
+
+    let bodyHTML='';
+    p.groups.forEach(g=>{
+      if(g.note){
+        bodyHTML+=`<div class="note" style="--nc:${g.nc||p.color}"><div class="note-hdr">🎤 Interview Answer</div>${g.text}</div>`;
+        return;
+      }
+      bodyHTML+=`<div class="grp-lbl">${g.label}</div>`;
+      g.tasks.forEach(t=>{
+        const isDone=state[t.id];
+        const badgeHTML=t.badge?`<span class="tbadge ${t.hi?'hi':''}" style="${t.hi?`color:${p.color}`:''}">${t.badge}</span>`:'';
+        bodyHTML+=`<div class="task ${isDone?'done':''}" data-task="${t.id}" onclick="toggleTask('${t.id}','${p.color}')" style="border-left-color:${isDone?p.color:'transparent'}">
+          <div class="task-dot" style="background:${isDone?p.color:'transparent'};border-color:${isDone?p.color:'var(--muted)'}">✓</div>
+          <div class="task-txt">${t.text}</div>
+          ${badgeHTML}
+        </div>`;
+      });
+    });
+
+    block.innerHTML=`
+      <div class="phase-hdr" onclick="togglePhase('${p.id}')">
+        <div class="phase-pip" style="background:${p.color}"></div>
+        <div class="phase-info">
+          <div class="phase-name">${p.name}</div>
+          <div class="phase-sub">${p.sub}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          <div class="phase-mini-bar"><div class="phase-mini-fill" id="bar_${p.id}" style="background:${p.color}"></div></div>
+          <div class="phase-tag" style="background:${p.color}18;color:${p.color};border:1px solid ${p.color}33">${p.tag}</div>
+        </div>
+        <div class="chevron">▼</div>
+      </div>
+      <div class="phase-body">${bodyHTML}</div>
+    `;
+    container.appendChild(block);
+  });
+  // open first
+  const first=document.getElementById('phase_p1');
+  if(first) first.classList.add('open');
+}
+
+// ─── Render Future ───
+function renderFuture(){
+  const container=document.getElementById('futurePhases');
+  FUTURE.forEach(f=>{
+    const card=document.createElement('div');
+    card.className='future-card';
+    const itemsHTML=f.items.map(i=>`<div class="future-item">${i}</div>`).join('');
+    card.innerHTML=`
+      <div class="future-card-hdr">
+        <span class="future-tag">${f.tag}</span>
+        <span class="future-title">${f.title}</span>
+      </div>
+      <div class="future-items">${itemsHTML}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+document.getElementById('resetBtn').addEventListener('click', resetAll);
+renderActive();
+renderFuture();
+updateProgress();
+</script>
+</body>
+</html>
