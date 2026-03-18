@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.input {
+  @apply block w-full mb-4 p-2 border rounded;
+}
+.btn {
+  @apply bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700;
+}
+
+/* Global base styling (Stitch-inspired) */
+html, body, #root {
+  height: 100%;
+}
+body {
+  font-family: "Plus Jakarta Sans", "Noto Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background-color: #fcf8f8;
+  color: #1b0e0e;
+}
+
+/* Subtle global zoom-out: scale rem-based sizes slightly smaller */
+html {
+  font-size: 15px; /* default 16px -> ~6% smaller for a tasteful zoom-out */
+}

@@ -1,0 +1,273 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  fullname     String
+  avatar       String
+  coverImage   String?
+  role         Role     @default(LEARNER)
+  password     String
+  refreshToken String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  videos       Video[]        @relation("VideoOwner")
+  videoViews   VideoView[]
+  subscribers  Subscription[] @relation("SubscribedToChannel")
+  subscribedTo Subscription[] @relation("SubscriberToChannel")
+  quizAttempts QuizAttempt[]
+  posts        Post[]         @relation("PostOwner")
+  playlists    Playlist[]     @relation("PlaylistOwner")
+  comments     Comment[]      @relation("CommentOwner")
+  bookmarks    Bookmark[]
+  likes        Like[]
+  watchHistory WatchHistory[]
+  progress     Progress[]
+}
+
+model WatchHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+}
+
+model Progress {
+  id        String   @id @default(uuid())
+  userId    String
+  videoId   String
+  progress  Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+}
+
+model Video {
+  id          String     @id @default(uuid())
+  videofile   String     @unique
+  thumbnail   String     @unique
+  title       String     @unique
+  description String
+  category    String
+  difficulty  Difficulty
+  tags        String[]   @default([])
+  views       Int        @default(0)
+  duration    String
+  isPublished Boolean    @default(true)
+  ownerId     String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  owner        User            @relation("VideoOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  videoViews   VideoView[]
+  quiz         Quiz?
+  quizAttempts QuizAttempt[]
+  playlists    PlaylistVideo[]
+  comments     Comment[]
+  bookmarks    Bookmark[]
+  likes        Like[]
+  watchHistory WatchHistory[]
+  progress     Progress[]
+}
+
+model VideoView {
+  id        String   @id @default(uuid())
+  videoId   String
+  userId    String?
+  ip        String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([videoId, userId])
+  @@unique([videoId, ip])
+}
+
+model Subscription {
+  id           String   @id @default(uuid())
+  subscriberId String
+  channelId    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  subscriber User @relation("SubscriberToChannel", fields: [subscriberId], references: [id], onDelete: Cascade)
+  channel    User @relation("SubscribedToChannel", fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriberId, channelId])
+}
+
+model Quiz {
+  id        String   @id @default(uuid())
+  videoId   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  video     Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+}
+
+model QuizQuestion {
+  id           String @id @default(uuid())
+  quizId       String
+  questionText String
+
+  // Relations
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  options QuizOption[]
+}
+
+model QuizOption {
+  id             String  @id @default(uuid())
+  quizQuestionId String
+  text           String
+  isCorrect      Boolean
+
+  // Relations
+  quizQuestion QuizQuestion @relation(fields: [quizQuestionId], references: [id], onDelete: Cascade)
+}
+
+model QuizAttempt {
+  id        String   @id @default(uuid())
+  userId    String
+  videoId   String
+  score     Int
+  total     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video            Video                 @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  submittedAnswers QuizSubmittedAnswer[]
+}
+
+model QuizSubmittedAnswer {
+  id             String  @id @default(uuid())
+  quizAttemptId  String
+  question       String
+  selectedOption String
+  isCorrect      Boolean
+
+  // Relations
+  quizAttempt QuizAttempt @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  content   String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  owner User   @relation("PostOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  likes Like[]
+}
+
+model Playlist {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  owner  User            @relation("PlaylistOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  videos PlaylistVideo[]
+}
+
+model PlaylistVideo {
+  playlistId String
+  videoId    String
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, videoId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  videoId   String?
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  video Video? @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  owner User   @relation("CommentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  likes Like[]
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  likedById String
+  videoId   String?
+  commentId String?
+  postId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  likedBy User     @relation(fields: [likedById], references: [id], onDelete: Cascade)
+  video   Video?   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([likedById, videoId])
+  @@unique([likedById, commentId])
+  @@unique([likedById, postId])
+}
+
+enum Role {
+  LEARNER
+  INSTRUCTOR
+}
+
+enum Difficulty {
+  beginner
+  intermediate
+  advanced
+}
