@@ -4,20 +4,15 @@ import {
   cloudinary,
 } from "../utils/cloudinary.js";
 
-import {
-  generateUploadUrl,
-  generatePlaybackUrl
-} from "../utils/aws-s3.js"
-
 import { cloudinaryDelete } from "../utils/cloudinaryDelete.js";
 import { getPublicIdFromUrl } from "../utils/getCloudinaryPublicid.js";
 import { prisma } from "../db/index.js";
 
 const publishVideo = async (req, res, next) => {
   try {
-    const { title, description, difficulty, category } = req.body;
+    const { title, description, difficulty, category, videos3Key, thumbnailURL } = req.body;
 
-    if ([title, description, difficulty, category].some((item) => !item || item.trim() === "")) {
+    if ([title, description, difficulty, category, s3Key, thumbnailURL].some((item) => !item || item.trim() === "")) {
       return res.status(400).json({ success: false, message: "All fields are required including title, description, difficulty and category" });
     }
 
@@ -27,29 +22,6 @@ const publishVideo = async (req, res, next) => {
     });
     if (videoExists) {
       return res.status(400).json({ success: false, message: "The video already Exists" });
-    }
-
-    //Get file path and validate
-    const localvidpath = req.files?.video?.[0]?.path;
-    const localthumbnailpath = req.files?.thumbnail?.[0]?.path;
-
-    if (!localthumbnailpath || !localvidpath) {
-      return res.status(404).json({ success: false, message: "Could not get the paths for files." });
-    }
-
-    //upload to cloudinary
-    let videofile;
-    try {
-      videofile = await uploadVideoOnCloudinary(localvidpath);
-    } catch (error) {
-      return res.status(509).json({ success: false, message: "Error occured while uploading video to cloudinary" });
-    }
-
-    let thumbnailfile;
-    try {
-      thumbnailfile = await uploadOnCloudinary(localthumbnailpath);
-    } catch (error) {
-      return res.status(509).json({ success: false, message: "Error occured while uploading thumbnail to cloudinary" });
     }
 
     //create video in DB
@@ -63,8 +35,8 @@ const publishVideo = async (req, res, next) => {
     try {
       video = await prisma.video.create({
         data: {
-          videofile: videofile.url || "",
-          thumbnail: thumbnailfile.url || "",
+          videos3Key: videos3Key,
+          thumbnail: thumbnailURL,
           title,
           description,
           duration: videofile.duration ? String(videofile.duration) : "0",
@@ -74,8 +46,6 @@ const publishVideo = async (req, res, next) => {
         }
       });
     } catch (error) {
-      if (videofile?.public_id) await cloudinary.uploader.destroy(videofile.public_id);
-      if (thumbnailfile?.public_id) await cloudinary.uploader.destroy(thumbnailfile.public_id);
       return res.status(400).json({ success: false, message: "Could not create the video in DB", errors: [error.message] });
     }
 
@@ -89,35 +59,6 @@ const publishVideo = async (req, res, next) => {
     next(err);
   }
 };
-
-const createPutURL = async (req, res, next) => {
-  try {
-    const { fileName, contentType } = req.body;
-    if (!fileName || !contentType) return res.status(400).json({ success: false, message: "All fields are required" });
-
-    const s3Key = `uploads/${Date.now()}-${fileName}`;
-
-    const uploadUrl = await generateUploadUrl(s3Key, contentType);
-    if (!uploadUrl) return res.status(500).json({ success: false, message: "Could not generate upload URL" });
-
-    return res.status(200).json({
-      success: true,
-      statusCode: 200,
-      data: uploadUrl,
-      message: "Upload URL generated successfully"
-    });
-  } catch (err) {
-    next(err);
-  }
-}
-
-const createGetURL = async (req, res, next) => {
-  try {
-    const { s3Key } = req.body;
-  } catch (err) {
-    next(err); ``
-  }
-
 
   const getVideoById = async (req, res, next) => {
     try {
@@ -387,6 +328,4 @@ const createGetURL = async (req, res, next) => {
     togglePublishStatus,
     getAllVideos,
     addVideoView,
-    createPutURL,
-    createGetURL
   };
