@@ -47,4 +47,38 @@ const verifyJWT = async (req, res, next) => {
     }
 };
 
-export { verifyJWT };
+const verifyJWTOptional = async (req, res, next) => {
+    const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+
+    if (!token) {
+        return next();
+    }
+
+    try {
+        const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        const user = await prisma.user.findUnique({
+            where: { id: decodedToken._id },
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                fullname: true,
+                avatar: true,
+                coverImage: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+
+        if (user) {
+            req.user = user;
+        }
+    } catch (_) {
+        // Intentionally ignore invalid tokens for optional auth flow.
+    }
+
+    return next();
+};
+
+export { verifyJWT, verifyJWTOptional };

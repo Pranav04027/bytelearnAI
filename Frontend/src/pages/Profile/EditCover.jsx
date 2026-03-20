@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { updateCoverImage } from "../../api/auth.js";
 import { Link } from "react-router-dom";
+import { createUploadUrl, uploadWithPresignedPut } from "../../api/awsS3.js";
 
 const EditCover = () => {
   const [file, setFile] = useState(null);
@@ -14,26 +15,28 @@ const EditCover = () => {
     setFile(f || null);
     setSuccess(false);
     setError("");
-    if (f) {
-      const url = URL.createObjectURL(f);
-      setPreview(url);
-    } else {
-      setPreview("");
-    }
+    if (f) setPreview(URL.createObjectURL(f));
+    else setPreview("");
   };
 
   const onSave = async () => {
     if (!file) return;
-    const fd = new FormData();
-    fd.append("coverImage", file);
     setSaving(true);
     setError("");
     setSuccess(false);
     try {
-      await updateCoverImage(fd);
+      const presign = await createUploadUrl({
+        mediaType: "coverimage",
+        fileName: file.name,
+        contentType: file.type || "image/jpeg",
+        fileSize: file.size,
+      });
+      const data = presign?.data || {};
+      await uploadWithPresignedPut(data.uploadUrl, file, file.type || "image/jpeg", data.headers || {});
+      await updateCoverImage({ coverImageUrl: data.publicUrl });
       setSuccess(true);
     } catch (e) {
-      setError(typeof e === "string" ? e : e?.message || "Failed to update cover image");
+      setError(e?.data?.message || e?.message || "Failed to update cover image");
     } finally {
       setSaving(false);
     }
@@ -43,14 +46,14 @@ const EditCover = () => {
     <div className="max-w-xl mx-auto bg-white shadow rounded-lg p-6">
       <h1 className="text-xl font-semibold text-gray-900 mb-4">Update Cover Image</h1>
       <input type="file" accept="image/*" onChange={onFile} />
-      {preview && (
-        <img src={preview} alt="preview" className="mt-4 w-full h-40 object-cover rounded" />
-      )}
+      {preview && <img src={preview} alt="preview" className="mt-4 w-full h-40 object-cover rounded" />}
       <div className="mt-4 flex gap-2">
         <button className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50" onClick={onSave} disabled={!file || saving}>
           {saving ? "Saving..." : "Save"}
         </button>
-        <Link to="/profile" className="px-4 py-2 bg-gray-100 rounded">Back</Link>
+        <Link to="/profile" className="px-4 py-2 bg-gray-100 rounded">
+          Back
+        </Link>
       </div>
       {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
       {success && <div className="mt-3 text-sm text-green-700">Cover image updated.</div>}

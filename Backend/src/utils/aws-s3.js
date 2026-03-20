@@ -1,108 +1,206 @@
-// src/utils/s3.util.js
-
+import { randomUUID } from "crypto";
+import path from "path";
 import {
-    S3Client,
-    PutObjectCommand,
-    DeleteObjectCommand,
-    GetObjectCommand
-} from "@aws-sdk/client-s3"
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import dotenv from "dotenv"
-dotenv.config()
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+const AWS_REGION = process.env.AWS_REGION;
+const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME;
+const S3_PUBLIC_BASE_URL = process.env.S3_PUBLIC_BASE_URL;
 
 const s3 = new S3Client({
-    region: process.env.AWS_REGION,
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    }
-})
+  region: AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 
-const BUCKET = process.env.S3_BUCKET_NAME
+const MEDIA_PREFIX = {
+  avatar: "avatars",
+  coverimage: "coverimages",
+  thumbnail: "thumbnails",
+  video: "videos",
+};
 
+const PUBLIC_MEDIA_TYPES = new Set(["avatar", "coverimage", "thumbnail"]);
+const PRIVATE_MEDIA_TYPES = new Set(["video"]);
 
-// Generate a presigned URL for client to upload directly to S3
-// Works for ANY file type — video, image, pdf, anything
-const generateUploadUrl = async (s3Key, contentType, expiresIn = 300) => {
+const ensureAwsConfig = () => {
+  const missing = [];
+  if (!AWS_REGION) missing.push("AWS_REGION");
+  if (!S3_BUCKET_NAME) missing.push("S3_BUCKET_NAME");
+  if (!process.env.AWS_ACCESS_KEY_ID) missing.push("AWS_ACCESS_KEY_ID");
+  if (!process.env.AWS_SECRET_ACCESS_KEY) missing.push("AWS_SECRET_ACCESS_KEY");
+
+  if (missing.length) {
+    throw new Error(`Missing AWS env vars: ${missing.join(", ")}`);
+  }
+};
+
+const normalizeFileName = (fileName = "") => {
+  const parsed = path.parse(fileName);
+  const safeBase =
+    (parsed.name || "file")
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 80) || "file";
+  const ext = (parsed.ext || "").toLowerCase();
+  return { safeBase, ext };
+};
+
+const buildS3Key = ({ mediaType, fileName, ownerId }) => {
+  const prefix = MEDIA_PREFIX[mediaType];
+  if (!prefix) {
+    throw new Error("Invalid mediaType");
+  }
+
+  const { safeBase, ext } = normalizeFileName(fileName);
+  const idChunk = ownerId ? `${ownerId}/` : "";
+  return `${prefix}/${idChunk}${Date.now()}-${randomUUID()}-${safeBase}${ext}`;
+};
+
+const buildPublicS3Url = (key) => {
+  if (!key) return null;
+  if (S3_PUBLIC_BASE_URL) {
+    return `${S3_PUBLIC_BASE_URL.replace(/\/$/, "")}/${key}`;
+  }
+  return `https://${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com/${key}`;
+};
+
+const inferS3KeyFromPublicUrl = (url) => {
+  if (!url || typeof url !== "string") return null;
+
+  try {
+    const parsed = new URL(url);
+    const pathname = decodeURIComponent(parsed.pathname || "");
+    return pathname.replace(/^\/+/, "") || null;
+  } catch (_) {
+    return null;
+  }
+};
+
+const getAllowedPublicOrigins = () => {
+  const allowed = new Set();
+  if (S3_PUBLIC_BASE_URL) {
     try {
-        if (!s3Key) return null
-
-        const command = new PutObjectCommand({
-            Bucket: BUCKET,
-            Key: s3Key,
-            ContentType: contentType
-        })
-
-        const uploadUrl = await getSignedUrl(s3, command, { expiresIn })
-        console.log("Upload URL generated for: " + s3Key)
-        return { uploadUrl, s3Key }
-
-    } catch (error) {
-        console.error("Could not generate upload URL", error)
-        return null
+      const parsed = new URL(S3_PUBLIC_BASE_URL);
+      allowed.add(parsed.host.toLowerCase());
+    } catch (_) {
+      // ignore invalid base URL format and rely on bucket hosts
     }
-}
+  }
 
+  if (S3_BUCKET_NAME && AWS_REGION) {
+    allowed.add(
+      `${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com`.toLowerCase()
+    );
+    allowed.add(`${S3_BUCKET_NAME}.s3.amazonaws.com`.toLowerCase());
+  }
+  return allowed;
+};
 
-// Generate a presigned URL for client to view/download a file
-// Call this every time you return any file reference to the client
-const generatePlaybackUrl = async (s3Key, expiresIn = 3600) => {
-    try {
-        if (!s3Key) return null
+const validatePublicUrlForPrefixes = (url, prefixes = []) => {
+  if (!url || typeof url !== "string")
+    return { valid: false, key: null, reason: "invalid_url" };
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (_) {
+    return { valid: false, key: null, reason: "invalid_url" };
+  }
 
-        const command = new GetObjectCommand({
-            Bucket: BUCKET,
-            Key: s3Key
-        })
+  const allowedHosts = getAllowedPublicOrigins();
+  const host = String(parsed.host || "").toLowerCase();
+  if (!allowedHosts.has(host)) {
+    return { valid: false, key: null, reason: "invalid_host" };
+  }
 
-        const url = await getSignedUrl(s3, command, { expiresIn })
-        console.log("Playback URL generated for: " + s3Key)
-        return url
+  const key = decodeURIComponent(parsed.pathname || "").replace(/^\/+/, "");
+  if (!key) return { valid: false, key: null, reason: "missing_key" };
 
-    } catch (error) {
-        console.error("Could not generate playback URL", error)
-        return null
-    }
-}
+  const normalizedPrefixes = prefixes
+    .filter(Boolean)
+    .map((prefix) => String(prefix).replace(/^\/+/, "").replace(/\/+$/, ""));
 
+  if (
+    normalizedPrefixes.length &&
+    !normalizedPrefixes.some(
+      (prefix) => key === prefix || key.startsWith(`${prefix}/`)
+    )
+  ) {
+    return { valid: false, key: null, reason: "invalid_prefix" };
+  }
 
-// Delete a single file from S3
-const deleteFromS3 = async (s3Key) => {
-    try {
-        if (!s3Key) return null
+  return { valid: true, key };
+};
 
-        await s3.send(new DeleteObjectCommand({
-            Bucket: BUCKET,
-            Key: s3Key
-        }))
+const generateUploadUrl = async ({ key, contentType, expiresIn = 300 }) => {
+  ensureAwsConfig();
+  const command = new PutObjectCommand({
+    Bucket: S3_BUCKET_NAME,
+    Key: key,
+    ContentType: contentType,
+  });
 
-        console.log("Deleted from S3: " + s3Key)
+  return getSignedUrl(s3, command, { expiresIn });
+};
 
-    } catch (error) {
-        console.error("Could not delete from S3", error)
-    }
-}
+const generatePrivateGetUrl = async ({ key, expiresIn = 3600 }) => {
+  ensureAwsConfig();
+  const command = new GetObjectCommand({
+    Bucket: S3_BUCKET_NAME,
+    Key: key,
+  });
 
+  return getSignedUrl(s3, command, { expiresIn });
+};
 
-// Delete multiple files — same pattern as your deleteCloudinaryFiles
-// await deleteManyFromS3(video.s3Key, thumbnail.s3Key, avatar.s3Key)
-const deleteManyFromS3 = async (...s3Keys) => {
-    try {
-        await Promise.all(
-            s3Keys
-                .filter(Boolean)
-                .map(key => deleteFromS3(key))
-        )
-    } catch (error) {
-        console.error("Could not delete files from S3", error)
-    }
-}
+const headObject = async (key) => {
+  if (!key) return null;
+  ensureAwsConfig();
+  return s3.send(
+    new HeadObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: key,
+    })
+  );
+};
 
+const deleteFromS3 = async (key) => {
+  if (!key) return;
+  ensureAwsConfig();
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: key,
+    })
+  );
+};
+
+const deleteManyFromS3 = async (...keys) => {
+  const filtered = keys.filter(Boolean);
+  await Promise.all(filtered.map((key) => deleteFromS3(key)));
+};
 
 export {
-    s3,
-    generateUploadUrl,
-    generatePlaybackUrl,
-    deleteFromS3,
-    deleteManyFromS3
-}
+  MEDIA_PREFIX,
+  PUBLIC_MEDIA_TYPES,
+  PRIVATE_MEDIA_TYPES,
+  buildS3Key,
+  buildPublicS3Url,
+  inferS3KeyFromPublicUrl,
+  validatePublicUrlForPrefixes,
+  generateUploadUrl,
+  generatePrivateGetUrl,
+  headObject,
+  deleteFromS3,
+  deleteManyFromS3,
+};

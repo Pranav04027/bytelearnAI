@@ -1,6 +1,5 @@
 import {Router} from "express"
-import {verifyJWT} from "../middlewares/auth.middlewares.js"
-import {upload} from "../middlewares/multer.middlewares.js"
+import {verifyJWT, verifyJWTOptional} from "../middlewares/auth.middlewares.js"
 import {
         publishVideo,
         getVideoById,
@@ -14,28 +13,16 @@ import {
 const router = Router()
 
 //Unprotectd Routes
-router.route("/v/:videoId").get(getVideoById)
+router.route("/v/:videoId").get(verifyJWTOptional, getVideoById)
 
 router.route("/getallvideos").get(getAllVideos)
 
 //Protected Routes
-router.route("/uploadvideo").post(verifyJWT , 
-    upload.fields([
-        {
-            name: "video",
-            maxCount: 1
-        },
-        {
-            name: "thumbnail",
-            maxCount: 1
-        }
-    ]),
-    publishVideo
-)
+router.route("/uploadvideo").post(verifyJWT, publishVideo)
 
 router.route("/delete-video/:videoId").delete(verifyJWT , deleteVideo)
 
-router.route("/update-video/:videoId").patch(verifyJWT , upload.single("thumbnail"), updateVideo)
+router.route("/update-video/:videoId").patch(verifyJWT, updateVideo)
 
 router.route("/toggleispublished/:videoId").patch(verifyJWT , togglePublishStatus)
 

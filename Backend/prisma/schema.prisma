@@ -5,6 +5,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -64,9 +65,9 @@ model Progress {
 
   model Video {
     id          String     @id @default(uuid())
-    videos3Key  String    @unique
+    videos3Key  String
     thumbnail   String     @unique
-    title       String     @unique
+    title       String
     description String
     category    String
     difficulty  Difficulty
@@ -89,6 +90,8 @@ model Progress {
     likes        Like[]
     watchHistory WatchHistory[]
     progress     Progress[]
+
+    @@unique([title, ownerId])
   }
 
 model VideoView {

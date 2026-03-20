@@ -12,25 +12,12 @@ import { registerUser,
          getWatchHistory,
          getLearnerDashboard
         } from "../controllers/user.controllers.js";
-import {upload} from "../middlewares/multer.middlewares.js"
 import {verifyJWT} from "../middlewares/auth.middlewares.js"
 
 
 const router = Router()
 
-router.route("/register").post(
-    upload.fields([ //multer.fields() RETURNS a middleware function with next() built-in
-        {
-            name: "avatar",
-            maxCount: 1
-        },
-        {
-            name: "coverImage",
-            maxCount: 1
-        }
-    ]),
-    registerUser
-)
+router.route("/register").post(registerUser)
 
 router.route("/login").post(loginUser) //raw JSON body, "username", "password", "email"
 
@@ -50,13 +37,11 @@ router.get("/dashboard", verifyJWT, getLearnerDashboard); // You know the differ
 
 router.route("/update-avatar").patch(
     verifyJWT,
-    upload.single("avatar"),
     updateUserAvatar
 )
 
 router.route("/update-coverimage").patch(
     verifyJWT,
-    upload.single("coverImage"),
     updateUserCoverImage
 )
 

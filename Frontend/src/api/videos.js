@@ -41,24 +41,24 @@ export const getUserPublicVideos = async ({ userId, page = 1, limit = 50, sortBy
   }
 };
 
-export const uploadVideo = async (formData, config = {}) => {
+export const uploadVideo = async (payload) => {
   try {
-    // Ensure thumbnail is present in FormData before sending
-    if (!(formData instanceof FormData) || !formData.has("thumbnail")) {
-      throw new Error("Thumbnail is required.");
-    }
-    // Ensure other required fields expected by backend are present
-    const requiredTextFields = ["title", "description", "difficulty", "category"]; 
-    for (const field of requiredTextFields) {
-      if (!formData.has(field)) {
-        throw new Error(`${field.charAt(0).toUpperCase() + field.slice(1)} is required.`);
+    const requiredFields = ["title", "description", "difficulty", "category", "videoKey", "thumbnailUrl"];
+    for (const field of requiredFields) {
+      if (!payload?.[field]) {
+        throw new Error(`${field} is required.`);
       }
     }
-    if (!formData.has("video")) {
-      throw new Error("Video file is required.");
-    }
-    // Do not set Content-Type manually; let Axios set proper multipart boundary
-    const response = await axios.post(`/videos/uploadvideo`, formData, config);
+
+    const response = await axios.post(`/videos/uploadvideo`, {
+      title: payload.title,
+      description: payload.description,
+      difficulty: payload.difficulty,
+      category: payload.category,
+      duration: payload.duration || "0",
+      videoKey: payload.videoKey,
+      thumbnailUrl: payload.thumbnailUrl,
+    });
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;

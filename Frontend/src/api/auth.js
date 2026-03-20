@@ -9,9 +9,9 @@ export const loginUser = async (credentials) => {
   }
 };
 
-export const registerUser = async (userData) => {
+export const registerUser = async (payload) => {
   try {
-    const response = await axios.post("/users/register", userData);
+    const response = await axios.post("/users/register", payload);
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -54,26 +54,18 @@ export const updateAccountDetails = async (details) => {
   }
 };
 
-export const updateAvatar = async (formData) => {
+export const updateAvatar = async ({ avatarUrl }) => {
   try {
-    const response = await axios.patch("/users/update-avatar", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+    const response = await axios.patch("/users/update-avatar", { avatarUrl });
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
   }
 };
 
-export const updateCoverImage = async (formData) => {
+export const updateCoverImage = async ({ coverImageUrl }) => {
   try {
-    const response = await axios.patch("/users/update-coverimage", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+    const response = await axios.patch("/users/update-coverimage", { coverImageUrl });
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
