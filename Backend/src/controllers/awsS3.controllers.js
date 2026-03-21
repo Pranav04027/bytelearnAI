@@ -56,8 +56,10 @@ const getPresignedUploadUrl = async (req, res, next) => {
       });
     }
 
-    // Anonymous allowed only for registration avatar upload.
-    if (mediaType !== "avatar" && !req.user?.id) {
+    const isAnonymousAllowed =
+      mediaType === "avatar" || mediaType === "coverimage";
+
+    if (!isAnonymousAllowed && !req.user?.id) {
       return res.status(401).json({
         success: false,
         message: `Authentication required for ${mediaType} upload URL`,
@@ -77,7 +79,9 @@ const getPresignedUploadUrl = async (req, res, next) => {
       fileName,
       ownerId: req.user?.id,
     });
+
     const expiresIn = 300;
+
     const uploadUrl = await generateUploadUrl({
       key,
       contentType,
@@ -146,6 +150,7 @@ const getVideoPlaybackUrl = async (req, res, next) => {
     }
 
     const expiresIn = 3600;
+
     const playbackUrl = await generatePrivateGetUrl({
       key: video.videos3Key,
       expiresIn,

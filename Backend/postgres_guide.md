@@ -14,26 +14,20 @@ Prisma is an Object-Relational Mapper (ORM). Just like Mongoose was your bridge 
 
 ---
 
-## 2. Managing the Database Locally
+## 2. Managing the Database
 
-To run PostgreSQL locally, you have a few options:
+This backend is configured to use a hosted PostgreSQL database such as Supabase.
 
-### Option A: Install PostgreSQL Natively (Windows)
-1. Download the [PostgreSQL Installer for Windows](https://www.postgresql.org/download/windows/).
-2. During installation, it will ask you to set a password for the default `postgres` user. **Remember this password!**
-3. It also installs **pgAdmin 4**, a graphical interface to view your tables and data (similar to MongoDB Compass).
-
-### Option B: Use Docker (Recommended if you know Docker)
-If you have Docker installed, you can spin up a Postgres instance in seconds:
-```bash
-docker run --name vidtube-postgres -e POSTGRES_PASSWORD=mysecretpassword -p 5432:5432 -d postgres
-```
+### Recommended: Supabase
+1. Create a project on [Supabase](https://supabase.com/).
+2. Open the database settings and copy the Postgres connection string.
+3. Paste that connection string into your `.env` as `DATABASE_URL`.
 
 ### Formatting your `DATABASE_URL`
 Once Postgres is running locally, you need to provide Prisma with the connection string in your [.env](file:///c:/Users/prana/Desktop/lolol/lolololololol/.env) file:
 ```env
-# Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE_NAME?schema=public
-DATABASE_URL="postgresql://postgres:mysecretpassword@localhost:5432/vidtube?schema=public"
+# Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE_NAME?sslmode=require
+DATABASE_URL="postgresql://postgres.your-project-ref:your-password@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
 ```
 
 ---
@@ -57,16 +51,16 @@ When you change [prisma/schema.prisma](file:///c:/Users/prana/Desktop/lolol/lolo
 
 When you deploy your backend to the internet, you shouldn't use a local database. You'll need a managed PostgreSQL hosting service. Here are the best free/cheap options:
 
-1. **[Neon Tech](https://neon.tech/)** (Highly Recommended)
+1. **[Supabase](https://supabase.com/)** (Recommended)
+   - Gives you a full Postgres database with a beautiful dashboard (the "Firebase of Postgres").
+2. **[Neon Tech](https://neon.tech/)**
    - Built for modern serverless apps.
    - Generates a connection string instantly.
    - Extremely fast and has a generous free tier.
-2. **[Supabase](https://supabase.com/)**
-   - Gives you a full Postgres database with a beautiful dashboard (the "Firebase of Postgres").
 3. **[Render](https://render.com/)** natively supports deploying Postgres databases alongside Node.js backends.
 
 **Deployment Steps:**
-1. Create an account on Neon or Supabase and create a new project.
+1. Create an account on Supabase and create a new project.
 2. Copy the provided `DATABASE_URL` (Connection String).
 3. Paste that `DATABASE_URL` into your production server's Environment Variables.
 4. Run `npx prisma migrate deploy` in your deployment script to build the tables on the production DB.

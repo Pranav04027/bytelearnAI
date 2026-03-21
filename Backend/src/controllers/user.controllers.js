@@ -125,8 +125,10 @@ const registerUser = async (req, res, next) => {
             "coverImageUrl must be a valid public URL from this S3 bucket and coverimages/ prefix",
         });
       }
+
       await assertObjectExists(coverValidation.key, "Cover image");
     }
+
     await assertObjectExists(avatarValidation.key, "Avatar");
 
     try {
@@ -181,8 +183,12 @@ const loginUser = async (req, res, next) => {
     }
 
     const OR = [];
-    if (username) OR.push({ username: username.toLowerCase() });
-    if (email) OR.push({ email: email.toLowerCase() });
+    if (username) {
+      OR.push({ username: username.toLowerCase() });
+    }
+    if (email) {
+      OR.push({ email: email.toLowerCase() });
+    }
 
     const user = await prisma.user.findFirst({
       where: { OR },
@@ -291,14 +297,17 @@ const refreshAccessToken = async (req, res, next) => {
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
     );
+
     const user = await prisma.user.findUnique({
       where: { id: decodedToken._id },
     });
 
-    if (!user)
+    if (!user) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid refresh token" });
+    }
+
     if (incomingRefreshToken !== user.refreshToken) {
       return res.status(401).json({
         success: false,
@@ -427,6 +436,7 @@ const updateAccountDetails = async (req, res, next) => {
 const updateUserAvatar = async (req, res, next) => {
   try {
     const { avatarUrl } = req.body;
+
     if (!avatarUrl || typeof avatarUrl !== "string") {
       return res
         .status(400)
@@ -443,6 +453,7 @@ const updateUserAvatar = async (req, res, next) => {
           "avatarUrl must be a valid public URL from this S3 bucket and avatars/ prefix",
       });
     }
+
     await assertObjectExists(avatarValidation.key, "Avatar");
 
     const existingUser = await prisma.user.findUnique({
@@ -489,6 +500,7 @@ const updateUserAvatar = async (req, res, next) => {
 const updateUserCoverImage = async (req, res, next) => {
   try {
     const { coverImageUrl } = req.body;
+
     if (!coverImageUrl || typeof coverImageUrl !== "string") {
       return res
         .status(400)
@@ -505,6 +517,7 @@ const updateUserCoverImage = async (req, res, next) => {
           "coverImageUrl must be a valid public URL from this S3 bucket and coverimages/ prefix",
       });
     }
+
     await assertObjectExists(coverValidation.key, "Cover image");
 
     const existingUser = await prisma.user.findUnique({

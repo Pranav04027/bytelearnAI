@@ -224,7 +224,9 @@ const VideoDetail = () => {
           .then((resp) => {
             try {
               if (typeof sessionStorage !== "undefined") sessionStorage.setItem(key, "1");
-            } catch (_) {}
+        } catch (e) {
+          console.warn("Initial progress update failed:", e);
+        }
             const next = resp?.data?.views;
             if (typeof next === "number") {
               setViews(next);
@@ -232,9 +234,9 @@ const VideoDetail = () => {
               setViews((v) => (typeof v === "number" ? v + 1 : v));
             }
           })
-          .catch((e) => {
-            console.warn("Failed to add view:", e);
-          });
+            .catch((e) => {
+              console.warn("Failed to add view on play:", e);
+            });
       }
     }
   };
@@ -248,9 +250,7 @@ const VideoDetail = () => {
       if (isAuthed) {
         try {
           await updateVideoProgress(id, { percent: 1 });
-        } catch (e) {
-          console.warn("Initial progress update failed:", e);
-        }
+        } catch (_) {}
       }
       // Optimistic unique view on play (with session guard) for all users
       try {
@@ -266,9 +266,9 @@ const VideoDetail = () => {
               const next = resp?.data?.views;
               if (typeof next === "number") setViews(next);
             })
-            .catch((e) => {
-              console.warn("Failed to add view on play:", e);
-            });
+          .catch((e) => {
+            console.warn("Failed to add view:", e);
+          });
         }
       } catch (_) {
         // ignore

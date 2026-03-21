@@ -7,9 +7,7 @@ const createUnauthorizedError = () => {
     return error;
 };
 
-// We injected the req with user.
 const verifyJWT = async (req, res, next) => {
-    // 2 possible places where client can send JWT access tokens
     const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
 
     if (!token) {
@@ -17,9 +15,8 @@ const verifyJWT = async (req, res, next) => {
     }
 
     try {
-        const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET); // Verifies and decodes.
+        const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
-        // Retrieve user excluding password and refreshToken
         const user = await prisma.user.findUnique({
             where: { id: decodedToken._id },
             select: {
@@ -39,8 +36,7 @@ const verifyJWT = async (req, res, next) => {
             return next(createUnauthorizedError());
         }
 
-        req.user = user; // Adding user field to the req
-
+        req.user = user;
         return next();
     } catch (error) {
         return next(createUnauthorizedError());
@@ -56,6 +52,7 @@ const verifyJWTOptional = async (req, res, next) => {
 
     try {
         const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
         const user = await prisma.user.findUnique({
             where: { id: decodedToken._id },
             select: {
@@ -74,8 +71,7 @@ const verifyJWTOptional = async (req, res, next) => {
         if (user) {
             req.user = user;
         }
-    } catch (_) {
-        // Intentionally ignore invalid tokens for optional auth flow.
+    } catch (error) {
     }
 
     return next();

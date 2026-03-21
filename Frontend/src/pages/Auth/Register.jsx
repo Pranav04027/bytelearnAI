@@ -20,14 +20,16 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
   };
 
   const handleFileChange = (e, type) => {
     const file = e.target.files?.[0] || null;
+
     if (file && file.size > MAX_IMAGE_BYTES) {
       setError("Image size should be less than 8MB.");
       return;
@@ -45,12 +47,14 @@ const Register = () => {
       fileSize: file.size,
     });
     const presignData = presign?.data || {};
+
     await uploadWithPresignedPut(
       presignData.uploadUrl,
       file,
       file.type || "image/jpeg",
       presignData.headers || {}
     );
+
     return presignData.publicUrl;
   };
 
@@ -67,14 +71,22 @@ const Register = () => {
       const avatarUrl = await uploadPublicImage(avatar, "avatar");
       const coverImageUrl = coverImage ? await uploadPublicImage(coverImage, "coverimage") : "";
 
-      await registerUser({
+      const registrationPayload = {
         ...formData,
         avatarUrl,
         coverImageUrl,
-      });
+      };
+
+      await registerUser(registrationPayload);
       navigate("/login");
     } catch (err) {
-      setError(err?.message || err?.data?.message || "Registration failed");
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.data?.message ||
+        err?.message ||
+        "Registration failed";
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -21,10 +21,27 @@ export const uploadWithPresignedPut = async (uploadUrl, file, contentType, heade
     ...headers,
   };
 
-  const response = await rawAxios.put(uploadUrl, file, {
-    headers: finalHeaders,
-    withCredentials: false,
-    onUploadProgress: onProgress,
-  });
-  return response;
+  try {
+    const response = await rawAxios.put(uploadUrl, file, {
+      headers: finalHeaders,
+      withCredentials: false,
+      onUploadProgress: onProgress,
+    });
+    return response;
+  } catch (error) {
+    const isLikelyS3CorsFailure =
+      error?.message === "Network Error" &&
+      typeof uploadUrl === "string" &&
+      uploadUrl.includes(".amazonaws.com/");
+
+    if (isLikelyS3CorsFailure) {
+      const corsError = new Error(
+        "S3 upload blocked by bucket CORS. Allow http://localhost:5173 to send PUT requests to this bucket."
+      );
+      corsError.cause = error;
+      throw corsError;
+    }
+
+    throw error;
+  }
 };

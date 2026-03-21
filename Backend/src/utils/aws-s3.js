@@ -7,6 +7,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { RequestChecksumCalculation } from "@aws-sdk/middleware-flexible-checksums";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const AWS_REGION = process.env.AWS_REGION;
@@ -19,6 +20,7 @@ const s3 = new S3Client({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
+  requestChecksumCalculation: RequestChecksumCalculation.WHEN_REQUIRED,
 });
 
 const MEDIA_PREFIX = {
@@ -68,7 +70,9 @@ const buildS3Key = ({ mediaType, fileName, ownerId }) => {
 };
 
 const buildPublicS3Url = (key) => {
-  if (!key) return null;
+  if (!key) {
+    return null;
+  }
   if (S3_PUBLIC_BASE_URL) {
     return `${S3_PUBLIC_BASE_URL.replace(/\/$/, "")}/${key}`;
   }
@@ -76,7 +80,9 @@ const buildPublicS3Url = (key) => {
 };
 
 const inferS3KeyFromPublicUrl = (url) => {
-  if (!url || typeof url !== "string") return null;
+  if (!url || typeof url !== "string") {
+    return null;
+  }
 
   try {
     const parsed = new URL(url);
@@ -94,7 +100,6 @@ const getAllowedPublicOrigins = () => {
       const parsed = new URL(S3_PUBLIC_BASE_URL);
       allowed.add(parsed.host.toLowerCase());
     } catch (_) {
-      // ignore invalid base URL format and rely on bucket hosts
     }
   }
 
@@ -108,8 +113,9 @@ const getAllowedPublicOrigins = () => {
 };
 
 const validatePublicUrlForPrefixes = (url, prefixes = []) => {
-  if (!url || typeof url !== "string")
+  if (!url || typeof url !== "string") {
     return { valid: false, key: null, reason: "invalid_url" };
+  }
   let parsed;
   try {
     parsed = new URL(url);
@@ -124,7 +130,9 @@ const validatePublicUrlForPrefixes = (url, prefixes = []) => {
   }
 
   const key = decodeURIComponent(parsed.pathname || "").replace(/^\/+/, "");
-  if (!key) return { valid: false, key: null, reason: "missing_key" };
+  if (!key) {
+    return { valid: false, key: null, reason: "missing_key" };
+  }
 
   const normalizedPrefixes = prefixes
     .filter(Boolean)
@@ -164,7 +172,9 @@ const generatePrivateGetUrl = async ({ key, expiresIn = 3600 }) => {
 };
 
 const headObject = async (key) => {
-  if (!key) return null;
+  if (!key) {
+    return null;
+  }
   ensureAwsConfig();
   return s3.send(
     new HeadObjectCommand({
@@ -175,7 +185,9 @@ const headObject = async (key) => {
 };
 
 const deleteFromS3 = async (key) => {
-  if (!key) return;
+  if (!key) {
+    return;
+  }
   ensureAwsConfig();
   await s3.send(
     new DeleteObjectCommand({
