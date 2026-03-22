@@ -60,7 +60,7 @@ const AppRoutes = () => {
         <Route
           path="instructor"
           element={
-            <RoleRoute role="instructor">
+            <RoleRoute role="INSTRUCTOR">
               <InstructorDashboard />
             </RoleRoute>
           }
@@ -186,7 +186,7 @@ const AppRoutes = () => {
         <Route
           path="videos/upload"
           element={
-            <RoleRoute role="instructor">
+            <RoleRoute role="INSTRUCTOR">
               <UploadVideo />
             </RoleRoute>
           }
@@ -194,7 +194,7 @@ const AppRoutes = () => {
         <Route
           path="quizzes/create/:videoId"
           element={
-            <RoleRoute role="instructor">
+            <RoleRoute role="INSTRUCTOR">
               <CreateQuiz />
             </RoleRoute>
           }

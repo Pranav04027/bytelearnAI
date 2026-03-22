@@ -36,8 +36,8 @@ const Login = () => {
 
       const res = await login(credentials);
       const role = res?.data?.role || res?.data?.user?.role || res?.data?.profile?.role;
-      if (role === "instructor") {
-        navigate("/dashboard");
+      if (role === "INSTRUCTOR") {
+        navigate("/profile");
       } else {
         navigate("/learner/dashboard");
       }

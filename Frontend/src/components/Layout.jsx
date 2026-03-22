@@ -91,7 +91,7 @@ const Layout = () => {
                 </div>
               </form>
               {/* Upload button for instructors on home page only */}
-              {user && user.role === 'instructor' && location.pathname === '/' && (
+              {user && user.role === 'INSTRUCTOR' && location.pathname === '/' && (
                 <Link
                   to="/videos/upload"
                   className="hidden sm:inline-flex items-center gap-2 bg-[#1b0e0e] text-white px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90"
@@ -137,21 +137,18 @@ const Layout = () => {
                           <p className="text-sm font-medium text-[#1b0e0e] truncate">{user.fullname}</p>
                         </div>
                         <div className="py-1">
-                          <Link to={user?.role === 'instructor' ? '/dashboard' : '/learner/dashboard'} className="flex items-center gap-3 px-3 py-2.5 text-sm text-[#1b0e0e] hover:bg-[#f3e7e8]" role="menuitem" onClick={() => setAvatarOpen(false)}>
-                            <span className="text-[#994d51]"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16h80V160H104a8,8,0,0,1,0-16h48a8,8,0,0,1,0,16H120v56h96a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Z"/></svg></span>
-                            Dashboard
-                          </Link>
-                          <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 text-sm text-[#1b0e0e] hover:bg-[#f3e7e8]" role="menuitem" onClick={() => setAvatarOpen(false)}>
-                            <span className="text-[#994d51]"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Z"/></svg></span>
-                            Profile
-                          </Link>
-                          {user.role === 'instructor' && (
-                            <Link to={user.username ? `/u/${user.username}` : "/profile"} className="flex items-center gap-3 px-3 py-2.5 text-sm text-[#1b0e0e] hover:bg-[#f3e7e8]" role="menuitem" onClick={() => setAvatarOpen(false)}>
-                              <span className="text-[#994d51]"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm0-160a72,72,0,0,0-72,72,8,8,0,0,0,16,0,56,56,0,1,1,56,56,8,8,0,0,0,0,16,72,72,0,0,0,0-144Z"/></svg></span>
-                              View public profile
+                          {user.role === 'LEARNER' && (
+                            <Link to="/learner/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-sm text-[#1b0e0e] hover:bg-[#f3e7e8]" role="menuitem" onClick={() => setAvatarOpen(false)}>
+                              <span className="text-[#994d51]"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16h80V160H104a8,8,0,0,1,0-16h48a8,8,0,0,1,0,16H120v56h96a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Z"/></svg></span>
+                              Dashboard
                             </Link>
                           )}
-                          {/* Continue link removed per request */}
+                          {user.role === 'INSTRUCTOR' && (
+                            <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 text-sm text-[#1b0e0e] hover:bg-[#f3e7e8]" role="menuitem" onClick={() => setAvatarOpen(false)}>
+                              <span className="text-[#994d51]"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Z"/></svg></span>
+                              Profile
+                            </Link>
+                          )}
                         </div>
                         <div className="py-1 border-t border-[#e7d0d1]">
                           <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm text-[#1b0e0e] hover:bg-[#f3e7e8]" role="menuitem">

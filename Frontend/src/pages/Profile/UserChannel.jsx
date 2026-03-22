@@ -300,7 +300,7 @@ const UserChannel = () => {
       </div>
 
       {/* Learner section */}
-      {role === "learner" && (
+      {role === "LEARNER" && (
         <div className="bg-white shadow rounded-lg p-4">
           <h2 className="text-lg font-semibold text-gray-900 mb-3">Learner</h2>
           <div className="text-sm text-gray-700">Average Score: {avgScore != null ? `${avgScore}%` : "Not available"}</div>

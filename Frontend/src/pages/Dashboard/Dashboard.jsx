@@ -32,7 +32,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
-      if (user?.role !== 'instructor') return;
+      if (user?.role !== 'INSTRUCTOR') return;
       setLoadingStats(true);
       setStatsError("");
       try {
@@ -49,7 +49,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchWatch = async () => {
-      if (user?.role !== 'instructor') return;
+      if (user?.role !== 'INSTRUCTOR') return;
       setLoadingWatch(true);
       setWatchError("");
       try {
@@ -66,7 +66,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchVideos = async () => {
-      if (user?.role !== 'instructor' || !user?._id) return;
+      if (user?.role !== 'INSTRUCTOR' || !user?._id) return;
       setLoadingVideos(true);
       setVideosError("");
       try {
@@ -105,7 +105,7 @@ const Dashboard = () => {
   // Fetch likes for last three videos
   useEffect(() => {
     const fetchLikes = async () => {
-      if (!lastThree.length || user?.role !== 'instructor') return;
+      if (!lastThree.length || user?.role !== 'INSTRUCTOR') return;
       setLoadingLikes(true);
       setLikesError("");
       try {

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { uploadVideo, getVideoById } from "../../api/videos.js";
 import { createQuiz } from "../../api/quizzes.js";
-import { generateQuizFromVideoUrlGemini } from "../../api/ollama.js";
 import { createUploadUrl, uploadWithPresignedPut } from "../../api/awsS3.js";
 
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024; // 1 GB
@@ -21,7 +20,6 @@ const UploadVideo = () => {
   const [success, setSuccess] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [quizChoice, setQuizChoice] = useState("manual");
-  const [postProcessing, setPostProcessing] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -91,37 +89,6 @@ const UploadVideo = () => {
       if (newId) {
         if (quizChoice === "manual") {
           navigate(`/quizzes/create/${newId}`);
-        } else if (quizChoice === "gemini") {
-          try {
-            setPostProcessing(true);
-            setSuccess("Generating quiz with Gemini...");
-            const vRes = await getVideoById(newId);
-            const v = vRes?.data;
-            if (!v?.videofile) throw new Error("Video playback URL not found");
-            const ai = await generateQuizFromVideoUrlGemini(v.videofile, 5);
-            const questions = (ai?.questions || []).map((q) => {
-              const opts = Array.isArray(q?.options) ? q.options : [];
-              const normalizedOpts = opts.length
-                ? opts.map((o) => ({ text: o?.text || "", isCorrect: !!o?.isCorrect }))
-                : [
-                    { text: q?.optionA || "Option 1", isCorrect: true },
-                    { text: q?.optionB || "Option 2", isCorrect: false },
-                  ];
-              if (!normalizedOpts.some((o) => o.isCorrect)) normalizedOpts[0].isCorrect = true;
-              return {
-                questionText: q?.questionText || q?.question || "",
-                options: normalizedOpts,
-              };
-            });
-            await createQuiz(newId, { questions });
-            navigate(`/quizzes/${newId}`);
-            return;
-          } catch (quizErr) {
-            setError(quizErr?.response?.data?.message || quizErr?.message || "Failed to auto-generate quiz");
-            navigate(`/quizzes/create/${newId}`);
-          } finally {
-            setPostProcessing(false);
-          }
         } else {
           navigate(`/videos/${newId}`);
         }
@@ -195,15 +162,10 @@ const UploadVideo = () => {
               <span>Manually make quiz</span>
             </label>
             <label className="inline-flex items-center gap-2">
-              <input type="radio" name="quizChoice" value="gemini" checked={quizChoice === "gemini"} onChange={() => setQuizChoice("gemini")} />
-              <span>Auto generate with Gemini</span>
-            </label>
-            <label className="inline-flex items-center gap-2">
               <input type="radio" name="quizChoice" value="none" checked={quizChoice === "none"} onChange={() => setQuizChoice("none")} />
-              <span>No quiz</span>
+              <span>No quiz (Students can create cuspomize</span>
             </label>
           </div>
-          {postProcessing && <div className="text-xs text-gray-600">Generating quiz... please wait.</div>}
         </fieldset>
 
         <div className="flex items-center gap-3">

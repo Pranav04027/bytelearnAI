@@ -25,21 +25,3 @@ export async function generateQuizFromVideoUrl(videoUrl, quizCount = 5) {
   });
   return data; // { questions: [...] }
 }
-
-export async function generateQuizFromVideoUrlGemini(videoUrl, quizCount = 5) {
-  const resp = await fetch(videoUrl, { mode: "cors" });
-  if (!resp.ok) throw new Error(`Failed to fetch video: ${resp.status}`);
-  const blob = await resp.blob();
-  const file = new File([blob], "video.mp4", {
-    type: blob.type || "video/mp4",
-  });
-
-  const form = new FormData();
-  form.append("video", file);
-  form.append("quiz_count", String(quizCount));
-
-  const { data } = await ollama.post("/generate_quiz_gemini", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return data; // { questions: [...] }
-}
