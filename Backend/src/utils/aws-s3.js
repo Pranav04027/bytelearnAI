@@ -33,18 +33,6 @@ const MEDIA_PREFIX = {
 const PUBLIC_MEDIA_TYPES = new Set(["avatar", "coverimage", "thumbnail"]);
 const PRIVATE_MEDIA_TYPES = new Set(["video"]);
 
-const ensureAwsConfig = () => {
-  const missing = [];
-  if (!AWS_REGION) missing.push("AWS_REGION");
-  if (!S3_BUCKET_NAME) missing.push("S3_BUCKET_NAME");
-  if (!process.env.AWS_ACCESS_KEY_ID) missing.push("AWS_ACCESS_KEY_ID");
-  if (!process.env.AWS_SECRET_ACCESS_KEY) missing.push("AWS_SECRET_ACCESS_KEY");
-
-  if (missing.length) {
-    throw new Error(`Missing AWS env vars: ${missing.join(", ")}`);
-  }
-};
-
 const normalizeFileName = (fileName = "") => {
   const parsed = path.parse(fileName);
   const safeBase =
@@ -151,7 +139,6 @@ const validatePublicUrlForPrefixes = (url, prefixes = []) => {
 };
 
 const generateUploadUrl = async ({ key, contentType, expiresIn = 300 }) => {
-  ensureAwsConfig();
   const command = new PutObjectCommand({
     Bucket: S3_BUCKET_NAME,
     Key: key,
@@ -162,7 +149,6 @@ const generateUploadUrl = async ({ key, contentType, expiresIn = 300 }) => {
 };
 
 const generatePrivateGetUrl = async ({ key, expiresIn = 3600 }) => {
-  ensureAwsConfig();
   const command = new GetObjectCommand({
     Bucket: S3_BUCKET_NAME,
     Key: key,
@@ -175,7 +161,6 @@ const headObject = async (key) => {
   if (!key) {
     return null;
   }
-  ensureAwsConfig();
   return s3.send(
     new HeadObjectCommand({
       Bucket: S3_BUCKET_NAME,
@@ -188,7 +173,6 @@ const deleteFromS3 = async (key) => {
   if (!key) {
     return;
   }
-  ensureAwsConfig();
   await s3.send(
     new DeleteObjectCommand({
       Bucket: S3_BUCKET_NAME,

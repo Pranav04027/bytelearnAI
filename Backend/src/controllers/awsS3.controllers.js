@@ -172,4 +172,4 @@ const getVideoPlaybackUrl = async (req, res, next) => {
   }
 };
 
-export { getPresignedUploadUrl, getVideoPlaybackUrl };
+export { getPresignedUploadUrl, getVideoPlaybackUrl};

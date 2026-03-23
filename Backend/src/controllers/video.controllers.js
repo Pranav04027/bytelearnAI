@@ -5,6 +5,7 @@ import {
   headObject,
   validatePublicUrlForPrefixes,
 } from "../utils/aws-s3.js";
+import { startTranscription } from "../utils/transcribe.utlis.js"
 
 const DIFFICULTY_MAPPING = {
   beginner: "beginner",
@@ -125,6 +126,17 @@ const publishVideo = async (req, res, next) => {
       key: video.videos3Key,
       expiresIn: 3600,
     });
+      
+    // create pending transcription record
+    await prisma.transcription.create({
+        data: {
+            videoId: video.id,
+            status: "PENDING"
+        }
+    })
+    
+    // fire and forget
+    startTranscription(video.videos3Key, video.id).catch(console.error)
 
     return res.status(201).json({
       success: true,

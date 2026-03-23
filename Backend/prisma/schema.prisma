@@ -1,6 +1,5 @@
 generator client {
-  provider   = "prisma-client-js"
-  engineType = "binary"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -33,6 +32,28 @@ model User {
   likes        Like[]
   watchHistory WatchHistory[]
   progress     Progress[]
+}
+
+model Transcription {
+  id                String            @id @default(uuid())
+  videoId           String            @unique
+  content           String?           // nullable — empty until transcription completes
+  transcribeJobName String?           // stores the AWS job name
+  status            TranscriptionStatus @default(PENDING)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+}
+
+model TranscriptChunk {
+  id         String   @id @default(uuid())
+  videoId    String
+  chunkIndex Int
+  content    String
+  createdAt  DateTime @default(now())
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
 }
 
 model WatchHistory {
@@ -89,6 +110,8 @@ model Progress {
     likes        Like[]
     watchHistory WatchHistory[]
     progress     Progress[]
+    transcription   Transcription?
+    transcriptChunks TranscriptChunk[]
 
     @@unique([title, ownerId])
   }
@@ -272,4 +295,12 @@ enum Difficulty {
   beginner
   intermediate
   advanced
+}
+
+enum TranscriptionStatus {
+  PENDING
+  PROCESSING
+  TRANSCRIBED
+  READY
+  FAILED
 }

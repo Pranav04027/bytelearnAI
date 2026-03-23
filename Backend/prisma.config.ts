@@ -1,10 +1,19 @@
 import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { defineConfig } from "prisma/config";
+
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error(
+    "DATABASE_URL is not set. Add it to Backend/.env before running Prisma commands."
+  );
+}
 
 export default defineConfig({
+  earlyAccess: true,
   schema: "prisma/schema.prisma",
-  migrations: { path: "prisma/migrations" },
-  datasource: {
-    url: env("DATABASE_URL"),
-  },
+  adapter: new PrismaPg({
+    connectionString,
+  }),
 });
