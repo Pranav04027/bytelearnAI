@@ -9,6 +9,7 @@ import { getUserById } from "../../api/auth.js";
 import { updateVideoProgress } from "../../api/progress.js";
 import { ensureHMS } from "../../utils/time.js";
 import VideoComments from "../Comments/VideoComments.jsx";
+import VideoChatDrawer from "../../components/VideoChatDrawer.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import axios from "../../api/axios.js";
 
@@ -49,6 +50,7 @@ const VideoDetail = () => {
   const hasSentInitialRef = useRef(false);
   const viewSentRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
 
   // util: validate Mongo ObjectId string (24 hex chars)
   const isValidObjectIdStr = (s) => typeof s === "string" && /^[a-fA-F0-9]{24}$/.test(s);
@@ -532,6 +534,17 @@ const VideoDetail = () => {
               </button>
               <p className="text-[#1b0e0e] text-sm font-medium leading-normal">Add to playlist</p>
             </div>
+            {video.transcription?.status === "READY" && (
+              <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-36 ml-auto">
+                <button
+                  onClick={() => setIsChatDrawerOpen(true)}
+                  className="rounded-full bg-indigo-100 text-indigo-600 p-2.5 font-bold hover:bg-indigo-200 hover:shadow transition-colors ring-2 ring-indigo-200"
+                >
+                  <span className="text-indigo-600">✨</span> Ask
+                </button>
+                <p className="text-[#1b0e0e] text-sm font-medium leading-normal">Ask the Video</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -684,6 +697,13 @@ const VideoDetail = () => {
           </div>
         </div>
       )}
+
+      {/* Ask the Video Drawer */}
+      <VideoChatDrawer
+        videoId={id}
+        isOpen={isChatDrawerOpen}
+        onClose={() => setIsChatDrawerOpen(false)}
+      />
     </div>
   );
 };

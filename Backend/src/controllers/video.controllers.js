@@ -184,6 +184,9 @@ const getVideoById = async (req, res, next) => {
         owner: {
           select: { id: true, username: true, avatar: true, fullname: true },
         },
+        transcription: {
+          select: { status: true },
+        },
       },
     });
 
