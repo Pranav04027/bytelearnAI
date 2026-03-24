@@ -22,6 +22,7 @@ import quizRouter from "./routes/quiz.routes.js";
 import instructorRoutes from "./routes/instructor.routes.js";
 import learnerRoutes from "./routes/learner.routes.js";
 import awsS3Routers from "./routes/awsS3.routes.js";
+import embeddingRouter from "./routes/embedding.routes.js";
 
 //use routes
 app.use("/api/v1/healthcheck", healthcheckRouter);
@@ -39,6 +40,7 @@ app.use("/api/v1/progress", progressRouter);
 app.use("/api/v1/recommendations", recommendationRouter);
 app.use("/api/v1/quizzes", quizRouter);
 app.use("/api/v1/awsS3", awsS3Routers);
+app.use("/api/v1/embeddings", embeddingRouter);
 
 
 app.use(errorHandler);

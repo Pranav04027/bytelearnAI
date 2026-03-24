@@ -1,9 +1,11 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider = "postgresql"
+  extensions = [pgvector(map: "vector")]
 }
 
 model User {
@@ -51,6 +53,7 @@ model TranscriptChunk {
   videoId    String
   chunkIndex Int
   content    String
+  embedding  Unsupported("vector(768)")?
   createdAt  DateTime @default(now())
 
   video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)

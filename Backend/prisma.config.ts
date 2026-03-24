@@ -13,7 +13,12 @@ if (!connectionString) {
 export default defineConfig({
   earlyAccess: true,
   schema: "prisma/schema.prisma",
-  adapter: new PrismaPg({
-    connectionString,
-  }),
+  datasource: {
+    url: connectionString,
+  },
+  migrate: {
+    adapter: new PrismaPg({
+      connectionString,
+    }),
+  },
 });

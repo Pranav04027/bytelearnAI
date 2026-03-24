@@ -22,9 +22,9 @@ export const prisma = new PrismaClient({ adapter });
 
 const connectDB = async () => {
   try {
-    console.log("🔄 Connecting to PostgreSQL...");
+    console.log("Connecting to PostgreSQL...");
     await prisma.$connect();
-    console.log("✅ PostgreSQL connected via Prisma!");
+    console.log("PostgreSQL connected via Prisma!");
   } catch (error) {
     console.error("❌ PostgreSQL connection error:", error.message);
     console.error(

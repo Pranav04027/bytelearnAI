@@ -12,7 +12,7 @@ const { startPolling } = await import("./utils/transcriptionPolling.js");
 const { app } = await import("./app.js");
 const { default: connectDB } = await import("./db/index.js");
 
-const PORT = process.env.PORT || 8001;
+const PORT = process.env.PORT || 8000;
 
 connectDB()
 .then(() => {
