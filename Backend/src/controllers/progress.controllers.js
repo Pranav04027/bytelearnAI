@@ -31,7 +31,6 @@ const updateProgress = async (req, res, next) => {
       });
     }
 
-    // Update or create progress
     if (user.progress.length > 0) {
       await prisma.progress.update({
         where: { id: user.progress[0].id },

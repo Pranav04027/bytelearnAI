@@ -22,9 +22,8 @@
   "license": "ISC",
   "devDependencies": {
     "@rolldown/binding-linux-x64-gnu": "^1.0.0-rc.9",
-    "@types/pg": "^8.18.0",
     "prettier": "^3.5.3",
-    "prisma": "^7.4.2",
+    "prisma": "^7.5.0",
     "supertest": "^7.2.2",
     "vitest": "^4.1.0"
   },
@@ -35,8 +34,8 @@
     "@aws-sdk/s3-request-presigner": "^3.925.0",
     "@google/generative-ai": "^0.24.1",
     "@langchain/textsplitters": "^1.0.1",
-    "@prisma/adapter-pg": "^7.4.2",
-    "@prisma/client": "^7.4.2",
+    "@prisma/adapter-pg": "^7.5.0",
+    "@prisma/client": "^7.5.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -46,6 +45,7 @@
     "express-xss-sanitizer": "^2.0.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "supermemory": "^4.17.0"
   }
 }
