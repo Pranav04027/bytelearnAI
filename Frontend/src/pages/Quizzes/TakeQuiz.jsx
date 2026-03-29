@@ -71,6 +71,7 @@ const TakeQuiz = () => {
         // Backend expects 'question' and 'selectedOption'
         question: q?._id || q?.id,
         selectedOption: answers[q?._id || q?.id] || null,
+        concept: q.questionConcept
       })),
     };
     setSubmitting(true);

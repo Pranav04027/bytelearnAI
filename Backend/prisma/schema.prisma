@@ -164,6 +164,7 @@ model QuizQuestion {
   id           String @id @default(uuid())
   quizId       String
   questionText String
+  questionConcept String
 
   // Relations
   quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)

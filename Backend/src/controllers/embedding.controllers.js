@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db/index.js";
+import {saveInMem, getImpInfo} from "../utils/supermemory.js"
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
@@ -189,7 +190,8 @@ const answerQuestionFromTranscript = async (req, res, next) => {
   });
 
   try {
-    const { videoId, question } = req.body;
+      const { videoId, question } = req.body;
+      
 
     if (!videoId || !question) {
       return res.status(400).json({
@@ -205,6 +207,12 @@ const answerQuestionFromTranscript = async (req, res, next) => {
         success: false,
         message: "question cannot be empty",
       });
+    }
+      
+    const isImportant = await getImpInfo(cleanQuestion);
+    
+    if (isImportant) {
+        await saveInMem(req.user.id,isImportant)
     }
 
     ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
@@ -279,7 +287,7 @@ const answerQuestionFromTranscript = async (req, res, next) => {
 
 const streamAnswerWithContext = async (
   cleanQuestion,
-  contextText,
+    contextText,
   res,
   isClientClosed
 ) => {
@@ -302,7 +310,7 @@ ${cleanQuestion}
 
 Transcript context:
 ${contextText}
-  `.trim();
+`
 
   const result = await model.generateContentStream(prompt);
   let answer = "";

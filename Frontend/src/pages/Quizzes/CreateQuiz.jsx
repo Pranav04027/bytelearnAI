@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { createQuiz, getQuizExistsByVideoId } from "../../api/quizzes.js";
-import { getVideoById } from "../../api/videos.js";
-import { generateQuizFromVideoUrl } from "../../api/ollama.js";
 
-const emptyQuestion = () => ({ question: "", options: [{ text: "" }, { text: "" }, { text: "" }, { text: "" }], correctIndex: 0 });
+const emptyQuestion = () => ({ question: "", concept: "", options: [{ text: "" }, { text: "" }, { text: "" }, { text: "" }], correctIndex: 0 });
 
 const CreateQuiz = () => {
   const navigate = useNavigate();
@@ -15,7 +13,6 @@ const CreateQuiz = () => {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [exists, setExists] = useState(false);
-  const [genLoading, setGenLoading] = useState(false);
 
   // Pre-check if quiz already exists for this video; if yes, redirect to take view
   useEffect(() => {
@@ -45,6 +42,10 @@ const CreateQuiz = () => {
     setQuestions((q) => q.map((qq, i) => (i === idx ? { ...qq, question: text } : qq)));
   };
 
+  const updateQuestionConcept = (idx, concept) => {
+    setQuestions((q) => q.map((qq, i) => (i === idx ? { ...qq, concept } : qq)));
+  };
+
   const updateOptionText = (qidx, oidx, text) => {
     setQuestions((q) =>
       q.map((qq, i) =>
@@ -57,42 +58,6 @@ const CreateQuiz = () => {
     setQuestions((q) => q.map((qq, i) => (i === qidx ? { ...qq, correctIndex: val } : qq)));
   };
 
-  const onGenerateAI = async () => {
-    setGenLoading(true);
-    setError("");
-    setSaved(false);
-    try {
-      const res = await getVideoById(videoId);
-      const v = res?.data;
-      if (!v?.videofile) throw new Error("Video file URL not found.");
-
-      // You can tweak default count here or later make it user-configurable
-      const ai = await generateQuizFromVideoUrl(v.videofile, 5);
-
-      const mapped = (ai?.questions || []).map((q) => {
-        const opts = Array.isArray(q?.options) ? q.options : [];
-        const correctIdx = Math.max(0, opts.findIndex((o) => o?.isCorrect));
-        // Ensure 4 options for UI; pad or slice as needed
-        const padded = opts
-          .map((o) => ({ text: o?.text || "" }))
-          .concat([{ text: "" }, { text: "" }, { text: "" }, { text: "" }])
-          .slice(0, 4);
-        return {
-          question: q?.questionText || "",
-          options: padded,
-          correctIndex: correctIdx >= 0 ? correctIdx : 0,
-        };
-      });
-
-      setQuestions(mapped.length ? mapped : [emptyQuestion()]);
-    } catch (e) {
-      const msg = typeof e === "string" ? e : e?.message || "Failed to generate quiz";
-      setError(msg);
-    } finally {
-      setGenLoading(false);
-    }
-  };
-
   const onSave = async () => {
     setSaving(true);
     setError("");
@@ -101,6 +66,7 @@ const CreateQuiz = () => {
       // Basic validation
       const sanitized = questions.map((q) => ({
         question: (q.question || "").trim(),
+        concept: (q.concept || "").trim(),
         options: q.options.map((o) => ({ text: (o.text || "").trim() })),
         correctIndex: Number(q.correctIndex) || 0,
       }));
@@ -127,8 +93,8 @@ const CreateQuiz = () => {
             : (filteredWithIndex[0]?.i ?? 0);
 
           return {
-            // quiz.models.js requires `questionText`
             questionText: q.question,
+            questionConcept: q.concept,
             options: filteredWithIndex.map((o) => ({
               text: o.text,
               isCorrect: o.i === effectiveCorrectIndex,
@@ -180,6 +146,12 @@ const CreateQuiz = () => {
               value={q.question}
               onChange={(e) => updateQuestionText(qi, e.target.value)}
             />
+            <input
+              className="border rounded p-2 w-full"
+              placeholder="Concept (e.g., JavaScript, React hooks)"
+              value={q.concept}
+              onChange={(e) => updateQuestionConcept(qi, e.target.value)}
+            />
             <div className="space-y-2">
               <div className="text-xs text-gray-500">Select the radio button for the correct option.</div>
               {q.options.map((o, oi) => (
@@ -204,9 +176,6 @@ const CreateQuiz = () => {
 
         <div className="flex items-center gap-2">
           <button className="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200" onClick={addQuestion}>Add Question</button>
-          <button className="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200" onClick={onGenerateAI} disabled={genLoading || exists}>
-            {genLoading ? "Generating..." : "Generate with AI (Ollama)"}
-          </button>
           <button className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50" onClick={onSave} disabled={saving || exists}>
             {saving ? "Saving..." : "Save Quiz"}
           </button>

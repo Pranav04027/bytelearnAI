@@ -11,6 +11,15 @@ export const createQuiz = async (videoId, quizData) => {
   }
 };
 
+export const createQuizAI = async (videoId) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/create-ai/${videoId}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
 export const getQuizByVideoId = async (videoId) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/${videoId}`);

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { getVideoById } from "../../api/videos.js";
+import { createQuizAI, getQuizExistsByVideoId } from "../../api/quizzes.js";
 import { toggleLikeVideo, getLikedVideos } from "../../api/likes.js";
 import { getMyPlaylists, createPlaylist, addVideoToPlaylist } from "../../api/playlists.js";
 import { addBookmark, removeBookmark, getMyBookmarks } from "../../api/bookmarks.js";
@@ -31,7 +32,6 @@ const VideoDetail = () => {
   const [liking, setLiking] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
-  const [commentCount, setCommentCount] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [views, setViews] = useState(null);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
@@ -51,6 +51,10 @@ const VideoDetail = () => {
   const viewSentRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
+  const [commentCount, setCommentCount] = useState(0);
+  const [quizExists, setQuizExists] = useState(false);
+  const [quizActionLoading, setQuizActionLoading] = useState(false);
+
 
   // util: validate Mongo ObjectId string (24 hex chars)
   const isValidObjectIdStr = (s) => typeof s === "string" && /^[a-fA-F0-9]{24}$/.test(s);
@@ -170,6 +174,32 @@ const VideoDetail = () => {
   }, [isAuthed, id]);
 
   useEffect(() => {
+    if (!isAuthed || !id) {
+      setQuizExists(false);
+      return;
+    }
+
+    let mounted = true;
+
+    (async () => {
+      try {
+        const exists = await getQuizExistsByVideoId(id);
+        if (mounted) {
+          setQuizExists(exists);
+        }
+      } catch (_) {
+        if (mounted) {
+          setQuizExists(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthed, id]);
+
+  useEffect(() => {
     const loadSubscriptionStatus = async () => {
       if (!isAuthed || !user?._id || !video) return;
       // Resolve owner id from multiple possible shapes
@@ -215,32 +245,32 @@ const VideoDetail = () => {
     }
 
     // One-time unique view after 10s watch time (per session) for all users
-    if (!viewSentRef.current && el.currentTime >= 10) {
-      const key = `viewed:${id}`;
-      if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) {
-        viewSentRef.current = true;
-      } else {
-        viewSentRef.current = true; // avoid duplicate triggers
-        axios
-          .patch(`/videos/addview/${id}`)
-          .then((resp) => {
-            try {
-              if (typeof sessionStorage !== "undefined") sessionStorage.setItem(key, "1");
-        } catch (e) {
-          console.warn("Initial progress update failed:", e);
-        }
-            const next = resp?.data?.views;
-            if (typeof next === "number") {
-              setViews(next);
-            } else {
-              setViews((v) => (typeof v === "number" ? v + 1 : v));
-            }
-          })
+      if (!viewSentRef.current && el.currentTime >= 10) {
+        const key = `viewed:${id}`;
+        if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) {
+          viewSentRef.current = true;
+        } else {
+          viewSentRef.current = true;
+          axios
+            .patch(`/videos/addview/${id}`)
+            .then((resp) => {
+              try {
+                if (typeof sessionStorage !== "undefined") sessionStorage.setItem(key, "1");
+              } catch (e) {
+                console.warn("Initial progress update failed:", e);
+              }
+              const next = resp?.data?.views;
+              if (typeof next === "number") {
+                setViews(next);
+              } else {
+                setViews((v) => (typeof v === "number" ? v + 1 : v));
+              }
+            })
             .catch((e) => {
               console.warn("Failed to add view on play:", e);
             });
+        }
       }
-    }
   };
 
   const handlePlay = async () => {
@@ -430,6 +460,28 @@ const VideoDetail = () => {
     }
   };
 
+  const handleQuizAction = async () => {
+    if (!isAuthed || !id || quizActionLoading) {
+      return;
+    }
+
+    if (quizExists) {
+      navigate(`/quizzes/${id}`);
+      return;
+    }
+
+    setQuizActionLoading(true);
+    try {
+      await createQuizAI(id);
+      setQuizExists(true);
+      navigate(`/quizzes/${id}`);
+    } catch (e) {
+      alert(typeof e === "string" ? e : e?.message || "Failed to create quiz");
+    } finally {
+      setQuizActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-6 text-center text-gray-600">
@@ -543,6 +595,20 @@ const VideoDetail = () => {
                   <span className="text-indigo-600">✨</span> Ask
                 </button>
                 <p className="text-[#1b0e0e] text-sm font-medium leading-normal">Ask the Video</p>
+              </div>
+            )}
+            {isAuthed && video.transcription?.status === "READY" && (
+              <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-40">
+                <button
+                  onClick={handleQuizAction}
+                  disabled={quizActionLoading}
+                  className="rounded-full bg-emerald-100 text-emerald-700 p-2.5 font-bold hover:bg-emerald-200 hover:shadow transition-colors ring-2 ring-emerald-200 disabled:opacity-60"
+                >
+                  <span>{quizActionLoading ? "..." : quizExists ? "Start" : "AI"}</span>
+                </button>
+                <p className="text-[#1b0e0e] text-sm font-medium leading-normal">
+                  {quizActionLoading ? "Preparing quiz" : quizExists ? "Attempt Quiz" : "Create Quiz"}
+                </p>
               </div>
             )}
           </div>
