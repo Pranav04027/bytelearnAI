@@ -286,10 +286,3 @@ For recruiter review, the main signal is breadth with cohesion: the project is n
 ## Author
 
 **Pranav Chauhan**
-
-If you are using this project as a portfolio piece, add:
-
-- a hosted demo link
-- architecture diagrams
-- screenshots or a short walkthrough GIF
-- a short section on engineering decisions and tradeoffs
