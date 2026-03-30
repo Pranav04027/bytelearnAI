@@ -1,4 +1,4 @@
-import { Supermemory } from '@supermemory/ai-sdk';
+import Supermemory from 'supermemory';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const sm = new Supermemory({ apiKey: process.env.SUPERMEMORY_API_KEY });
