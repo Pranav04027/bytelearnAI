@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getQuizByVideoId, submitQuiz } from "../../api/quizzes.js";
 import { getLearnerDashboard } from "../../api/auth.js";
@@ -12,6 +12,7 @@ const TakeQuiz = () => {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [attemptsForThisQuiz, setAttemptsForThisQuiz] = useState([]);
+  const attemptLimit = parseInt(import.meta.env.VITE_QUIZ_ATTEMPT_LIMIT) || 2;
 
   useEffect(() => {
     const load = async () => {
@@ -55,8 +56,8 @@ const TakeQuiz = () => {
 
   const onSubmit = async () => {
     if (!quiz) return;
-    if (attemptsForThisQuiz.length >= 2) {
-      setError("Attempt limit reached (2). You cannot submit again.");
+    if (attemptsForThisQuiz.length >= attemptLimit) {
+      setError(`Attempt limit reached (${attemptLimit}). You cannot submit again.`);
       return;
     }
     // Require answers for all questions to avoid backend errors on null IDs
@@ -113,8 +114,8 @@ const TakeQuiz = () => {
   const questions = Array.isArray(quiz?.questions) ? quiz.questions : [];
   const attemptCount = (attemptsForThisQuiz?.length || 0);
   const attemptNo = attemptCount + 1;
-  const isReattempt = attemptNo === 2;
-  const attemptLimitReached = attemptCount >= 2;
+  const isReattempt = attemptNo > 1;
+  const attemptLimitReached = attemptCount >= attemptLimit;
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
@@ -122,10 +123,10 @@ const TakeQuiz = () => {
         <h1 className="text-xl font-semibold text-gray-900">Quiz</h1>
         <div className="mt-1 text-sm text-gray-600">
           {attemptLimitReached ? (
-            <span>Attempt limit reached (2/2).</span>
+            <span>Attempt limit reached ({attemptCount}/{attemptLimit}).</span>
           ) : (
             <span>
-              {isReattempt ? "Re-attempt" : "Attempt"} {attemptNo} of 2
+              {isReattempt ? "Re-attempt" : "Attempt"} {attemptNo} of {attemptLimit}
             </span>
           )}
         </div>

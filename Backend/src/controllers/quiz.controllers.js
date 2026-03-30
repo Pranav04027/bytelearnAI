@@ -5,6 +5,7 @@ import {retriveFromMem} from "../utils/supermemory.js"
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
+const attemptLimit = parseInt(process.env.QUIZ_ATTEMPT_LIMIT) || 2;
 
 const aiModel = genAI?.getGenerativeModel({
   model: "gemini-2.5-flash-lite",
@@ -313,6 +314,17 @@ const submitQuiz = async (req, res, next) => {
 
     if (!answers || !Array.isArray(answers)) {
       return res.status(400).json({ success: false, message: "Answers not exist or not in array format" });
+    }
+
+    const existingAttempts = await prisma.quizAttempt.count({
+      where: { userId: req.user.id, videoId }
+    });
+
+    if (existingAttempts >= attemptLimit) {
+      return res.status(403).json({ 
+        success: false, 
+        message: `Attempt limit reached (${attemptLimit}). You cannot submit again.` 
+      });
     }
 
     const quiz = await prisma.quiz.findUnique({
