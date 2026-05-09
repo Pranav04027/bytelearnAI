@@ -23,7 +23,7 @@ connectDB()
     })
 })
 .catch((err) => {
-    console.error("❌ Postgres connection failed !!! " , err)
+    console.error("Postgres connection failed !!! " , err)
     process.exit(1);
 })
 

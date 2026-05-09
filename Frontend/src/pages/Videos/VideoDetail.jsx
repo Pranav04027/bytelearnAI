@@ -118,6 +118,26 @@ const VideoDetail = () => {
     load();
   }, [id]);
 
+  // Polling for transcription status
+  useEffect(() => {
+    const status = video?.transcription?.status;
+    if (status === "PENDING" || status === "PROCESSING" || status === "TRANSCRIBED") {
+      const intervalId = setInterval(async () => {
+        try {
+          const res = await getVideoById(id);
+          const v = res?.data || null;
+          if (v && v.transcription?.status !== status) {
+            setVideo((prev) => ({ ...prev, transcription: v.transcription }));
+          }
+        } catch (e) {
+          console.error("Polling error:", e);
+        }
+      }, 5000);
+
+      return () => clearInterval(intervalId);
+    }
+  }, [id, video?.transcription?.status]);
+
   // Initialize bookmark status
   useEffect(() => {
     if (!isAuthed || !id) return;
@@ -586,31 +606,72 @@ const VideoDetail = () => {
               </button>
               <p className="text-[#1b0e0e] text-sm font-medium leading-normal">Add to playlist</p>
             </div>
-            {video.transcription?.status === "READY" && (
-              <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-36 ml-auto">
-                <button
-                  onClick={() => setIsChatDrawerOpen(true)}
-                  className="rounded-full bg-indigo-100 text-indigo-600 p-2.5 font-bold hover:bg-indigo-200 hover:shadow transition-colors ring-2 ring-indigo-200"
-                >
-                  <span className="text-indigo-600">✨</span> Ask
-                </button>
-                <p className="text-[#1b0e0e] text-sm font-medium leading-normal">Ask the Video</p>
-              </div>
-            )}
-            {isAuthed && video.transcription?.status === "READY" && (
-              <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-40">
-                <button
-                  onClick={handleQuizAction}
-                  disabled={quizActionLoading}
-                  className="rounded-full bg-emerald-100 text-emerald-700 p-2.5 font-bold hover:bg-emerald-200 hover:shadow transition-colors ring-2 ring-emerald-200 disabled:opacity-60"
-                >
-                  <span>{quizActionLoading ? "..." : quizExists ? "Start" : "AI"}</span>
-                </button>
-                <p className="text-[#1b0e0e] text-sm font-medium leading-normal">
-                  {quizActionLoading ? "Preparing quiz" : quizExists ? "Attempt Quiz" : "Create Quiz"}
-                </p>
-              </div>
-            )}
+            {/* AI Status or Actions */}
+            {(() => {
+              const status = video.transcription?.status;
+              
+              if (status === "PENDING" || status === "PROCESSING") {
+                return (
+                  <div className="flex flex-col items-center justify-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-auto px-4 ml-auto rounded-lg border border-indigo-100 bg-indigo-50/50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
+                      <p className="text-indigo-800 text-sm font-medium">Transcribing video for AI features...</p>
+                    </div>
+                  </div>
+                );
+              }
+              
+              if (status === "TRANSCRIBED") {
+                return (
+                  <div className="flex flex-col items-center justify-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-auto px-4 ml-auto rounded-lg border border-purple-100 bg-purple-50/50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border-2 border-purple-600 border-t-transparent animate-spin"></div>
+                      <p className="text-purple-800 text-sm font-medium">Generating AI embeddings...</p>
+                    </div>
+                  </div>
+                );
+              }
+              
+              if (status === "FAILED") {
+                return (
+                  <div className="flex flex-col items-center justify-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-auto px-4 ml-auto rounded-lg border border-red-100 bg-red-50/50">
+                    <p className="text-red-600 text-sm font-medium">❌ AI features failed to process</p>
+                  </div>
+                );
+              }
+              
+              if (status === "READY") {
+                return (
+                  <>
+                    <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-36 ml-auto">
+                      <button
+                        onClick={() => setIsChatDrawerOpen(true)}
+                        className="rounded-full bg-indigo-100 text-indigo-600 p-2.5 font-bold hover:bg-indigo-200 hover:shadow transition-colors ring-2 ring-indigo-200"
+                      >
+                        <span className="text-indigo-600">✨</span> Ask
+                      </button>
+                      <p className="text-[#1b0e0e] text-sm font-medium leading-normal">Ask the Video</p>
+                    </div>
+                    {isAuthed && (
+                      <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-40">
+                        <button
+                          onClick={handleQuizAction}
+                          disabled={quizActionLoading}
+                          className="rounded-full bg-emerald-100 text-emerald-700 p-2.5 font-bold hover:bg-emerald-200 hover:shadow transition-colors ring-2 ring-emerald-200 disabled:opacity-60"
+                        >
+                          <span>{quizActionLoading ? "..." : quizExists ? "Start" : "AI"}</span>
+                        </button>
+                        <p className="text-[#1b0e0e] text-sm font-medium leading-normal">
+                          {quizActionLoading ? "Preparing quiz" : quizExists ? "Attempt Quiz" : "Create Quiz"}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                );
+              }
+              
+              return null;
+            })()}
           </div>
         </div>
       </div>

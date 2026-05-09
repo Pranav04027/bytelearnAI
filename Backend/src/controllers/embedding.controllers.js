@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db/index.js";
-import {saveInMem, getImpInfo} from "../utils/supermemory.js"
+import {saveInMem, getImpInfo, retriveFromMem} from "../utils/supermemory.js"
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
@@ -260,9 +260,17 @@ const answerQuestionFromTranscript = async (req, res, next) => {
       .map((match) => `[Chunk ${match.chunkIndex}] ${match.content}`)
       .join("\n\n");
 
+    let memory = "";
+    try {
+      memory = (await retriveFromMem(req.user.id))?.trim() || "";
+    } catch (_) {
+      memory = "";
+    }
+
     const answer = await streamAnswerWithContext(
       cleanQuestion,
       contextText,
+      memory,
       res,
       () => clientClosed
     );
@@ -288,6 +296,7 @@ const answerQuestionFromTranscript = async (req, res, next) => {
 const streamAnswerWithContext = async (
   cleanQuestion,
     contextText,
+    memory,
   res,
   isClientClosed
 ) => {
@@ -304,6 +313,10 @@ Rules:
 - Use only the context below.
 - If the context is insufficient, say that clearly.
 - Keep the answer concise and accurate.
+- If there is relevant learner memory below, use it to tailor your explanation to their skill level, context, or weaknesses.
+
+Learner memory:
+${memory || "No prior learner memory available."}
 
 Question:
 ${cleanQuestion}

@@ -11,8 +11,19 @@ if (!connectionString) {
   );
 }
 
+let cleanConnectionString = connectionString;
+try {
+  const url = new URL(connectionString);
+  if (url.searchParams.has("pgbouncer")) {
+    url.searchParams.delete("pgbouncer");
+    cleanConnectionString = url.toString();
+  }
+} catch (e) {
+  // ignore
+}
+
 const pool = new Pool({
-  connectionString,
+  connectionString: cleanConnectionString,
   family: 4,
 });
 const adapter = new PrismaPg(pool);
@@ -26,7 +37,7 @@ const connectDB = async () => {
     await prisma.$connect();
     console.log("PostgreSQL connected via Prisma!");
   } catch (error) {
-    console.error("❌ PostgreSQL connection error:", error.message);
+    console.error("PostgreSQL connection error:", error.message);
     console.error(
       "Verify that DATABASE_URL points to a reachable Postgres instance and that the Supabase connection string is correct."
     );
