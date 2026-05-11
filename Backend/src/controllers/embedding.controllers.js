@@ -8,7 +8,7 @@ import {saveInMem, getImpInfo, retriveFromMem} from "../utils/supermemory.js"
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 const embeddingModel = genAI?.getGenerativeModel({
-  model: "text-embedding-004",
+  model: "gemini-embedding-001",
 });
 
 export const aiModel = genAI?.getGenerativeModel({
@@ -124,7 +124,7 @@ const chunkAndEmbed = async (req, res, next) => {
         videoId,
         chunkIndex,
         content,
-        embedding,
+        embedding: embedding.slice(0, 768), // Truncate to 768 dimensions using MRL
       });
     }
 
@@ -229,7 +229,7 @@ const answerQuestionFromTranscript = async (req, res, next) => {
       throw new Error("Failed to generate embedding for the question");
     }
 
-    const vectorLiteral = createVectorLiteral(queryEmbedding);
+    const vectorLiteral = createVectorLiteral(queryEmbedding.slice(0, 768));
 
     const matches = await prisma.$queryRaw`
       SELECT
@@ -307,12 +307,13 @@ const streamAnswerWithContext = async (
   const model = ensureModel(aiModel, "Gemini answer model is not configured");
 
   const prompt = `
-      You are answering a question using only the provided transcript context from a video.
+You are a brilliant, friendly, and authoritative AI tutor explaining a video to a student.
+Use the provided video transcript context to answer the student's question.
 
 Rules:
-- Use only the context below.
-- If the context is insufficient, say that clearly.
-- Keep the answer concise and accurate.
+- Speak directly to the student naturally. Do NOT say "Based on the transcript" or "The video discusses". Just answer the question directly and confidently!
+- Use only the provided context. If the answer isn't in the context, politely say you couldn't find it in this specific video.
+- Keep the answer concise, structured, and easy to read. Use formatting like numbered lists if explaining multiple points.
 - If there is relevant learner memory below, use it to tailor your explanation to their skill level, context, or weaknesses.
 
 Learner memory:

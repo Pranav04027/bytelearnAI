@@ -30,7 +30,6 @@ export const saveInMem = async (userId, content) => {
         
     } catch (error) {
         console.log(`Error occured while creating the memory: ${error}`)
-        throw error;
     }
     
 }

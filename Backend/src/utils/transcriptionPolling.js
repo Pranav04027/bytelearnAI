@@ -33,7 +33,10 @@ export const startPolling = () => {
   setInterval(async () => {
     try {
       const pending = await prisma.transcription.findMany({
-        where: { status: "PROCESSING" },
+        where: { 
+          status: "PROCESSING",
+          transcribeJobName: { not: null }
+        },
         select: { videoId: true, transcribeJobName: true },
       });
 
