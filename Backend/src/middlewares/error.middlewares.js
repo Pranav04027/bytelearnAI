@@ -1,4 +1,6 @@
-import { Prisma } from "@prisma/client";
+import prismaPkg from "@prisma/client";
+
+const { Prisma } = prismaPkg;
 
 const errorHandler = (err, req, res, next) => {
     const isPrismaError = err instanceof Prisma.PrismaClientKnownRequestError || 
