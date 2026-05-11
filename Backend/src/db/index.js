@@ -28,6 +28,17 @@ const pool = new Pool({
   connectionString: cleanConnectionString,
   family: 4,
 });
+pool.on("error", (err) => {
+  if (err.message?.includes("ENETUNREACH")) {
+    console.error(
+      "ENETUNREACH detected — the database host resolves to an unreachable IPv6 address.",
+    );
+    console.error(
+      "Try setting DATABASE_URL to use an IPv4 address directly, or ensure your environment has IPv6 connectivity.",
+    );
+    process.exit(1);
+  }
+});
 const adapter = new PrismaPg(pool);
 
 // Global PrismaClient instance
