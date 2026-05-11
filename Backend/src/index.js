@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-//const { startPolling } = await import("./utils/transcriptionPolling.js");
+const { startPolling } = await import("./utils/transcriptionPolling.js");
 
 const { app } = await import("./app.js");
 const { default: connectDB } = await import("./db/index.js");
