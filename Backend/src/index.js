@@ -27,4 +27,4 @@ connectDB()
     process.exit(1);
 })
 
-//startPolling()
+startPolling()

@@ -27,7 +27,6 @@ const INTERNAL_API_BASE_URL =
   process.env.INTERNAL_API_BASE_URL ||
   `http://127.0.0.1:${process.env.PORT || 8000}`;
 
-/*
 export const startPolling = () => {
   console.log("Transcription polling started");
 
@@ -53,7 +52,6 @@ export const startPolling = () => {
     }
   }, 30000);
 };
-*/
 
 const checkJob = async (videoId, jobName) => {
   try {
