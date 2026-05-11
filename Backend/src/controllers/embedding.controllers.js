@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { Prisma } from "@prisma/client";
+import prismaPkg from "@prisma/client";
 import { prisma } from "../db/index.js";
+
+const { Prisma } = prismaPkg;
 import {saveInMem, getImpInfo, retriveFromMem} from "../utils/supermemory.js"
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
