@@ -2,8 +2,5 @@
   "dependencies": {
     "@aws-sdk/s3-request-presigner": "^3.1011.0",
     "@supermemory/ai-sdk": "^1.0.8"
-  },
-  "engines": {
-    "node": "20.x"
   }
 }

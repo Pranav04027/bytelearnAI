@@ -23,7 +23,6 @@
   "devDependencies": {
     "@rolldown/binding-linux-x64-gnu": "^1.0.0-rc.9",
     "prettier": "^3.5.3",
-    "prisma": "^7.5.0",
     "supertest": "^7.2.2",
     "vitest": "^4.1.0"
   },
@@ -46,6 +45,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.20.0",
+    "prisma": "^7.8.0",
     "supermemory": "^4.17.0"
   }
 }
