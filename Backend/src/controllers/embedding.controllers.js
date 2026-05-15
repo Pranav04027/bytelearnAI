@@ -52,6 +52,15 @@ const writeSseEvent = (res, event, data) => {
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 };
 
+const summarizeError = (error) => ({
+  name: error?.name,
+  message: error?.message,
+  code: error?.code,
+  type: error?.type,
+  statusCode: error?.statusCode || error?.$metadata?.httpStatusCode,
+  requestId: error?.$metadata?.requestId,
+});
+
 const ensureModel = (model, message) => {
   if (!model) {
     const error = new Error(message);
@@ -65,6 +74,10 @@ const ensureModel = (model, message) => {
 const chunkAndEmbed = async (req, res, next) => {
   try {
     const { transcript: transcriptFromBody, videoId } = req.body;
+
+    console.log(
+      `[embedding:chunk_and_embed_start] videoId=${videoId || "missing"} model=${geminiEmbeddingModel} apiVersion=${process.env.GEMINI_API_VERSION || "v1beta"}`
+    );
 
     if (!videoId) {
       return res.status(400).json({
@@ -108,6 +121,10 @@ const chunkAndEmbed = async (req, res, next) => {
 
     const chunks = await splitter.createDocuments([transcript]);
 
+    console.log(
+      `[embedding:chunk_plan] videoId=${videoId} transcriptLength=${transcript.length} chunks=${chunks.length}`
+    );
+
     if (chunks.length === 0) {
       return res.status(400).json({
         success: false,
@@ -124,12 +141,20 @@ const chunkAndEmbed = async (req, res, next) => {
         continue;
       }
 
+      console.log(
+        `[embedding:chunk_request] videoId=${videoId} chunkIndex=${chunkIndex} contentLength=${content.length}`
+      );
+
       const result = await embeddingModel.embedContent(content);
       const embedding = result?.embedding?.values;
 
       if (!Array.isArray(embedding) || embedding.length === 0) {
         throw new Error(`Embedding generation failed for chunk ${chunkIndex}`);
       }
+
+      console.log(
+        `[embedding:chunk_success] videoId=${videoId} chunkIndex=${chunkIndex} dimensions=${embedding.length}`
+      );
 
       embeddedChunks.push({
         id: randomUUID(),
@@ -179,6 +204,10 @@ const chunkAndEmbed = async (req, res, next) => {
       });
     });
 
+    console.log(
+      `[embedding:chunk_and_embed_succeeded] videoId=${videoId} chunksCreated=${embeddedChunks.length}`
+    );
+
     return res.status(200).json({
       success: true,
       statusCode: 200,
@@ -189,6 +218,10 @@ const chunkAndEmbed = async (req, res, next) => {
       message: "Transcript chunks and embeddings created",
     });
   } catch (error) {
+    console.error(
+      `[embedding:chunk_and_embed_failed] videoId=${req.body?.videoId || "missing"}`,
+      summarizeError(error)
+    );
     next(error);
   }
 };

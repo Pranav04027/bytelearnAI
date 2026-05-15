@@ -16,10 +16,24 @@ const transcribe = new TranscribeClient({
   },
 });
 
+const summarizeError = (error) => ({
+  name: error?.name,
+  message: error?.message,
+  code: error?.code,
+  type: error?.type,
+  statusCode: error?.$metadata?.httpStatusCode || error?.statusCode,
+  requestId: error?.$metadata?.requestId,
+  cfId: error?.$metadata?.cfId,
+});
+
 export const startTranscription = async (s3Key, videoId) => {
   const jobName = `bytelearn-${videoId}-${Date.now()}`;
 
   try {
+    console.log(
+      `[transcription:start] videoId=${videoId} jobName=${jobName} bucket=${S3_BUCKET_NAME} key=${s3Key} region=${AWS_REGION}`
+    );
+
     await transcribe.send(
       new StartTranscriptionJobCommand({
         TranscriptionJobName: jobName,
@@ -47,9 +61,14 @@ export const startTranscription = async (s3Key, videoId) => {
       },
     });
 
-    console.log(`Transcription started: ${jobName}`);
+    console.log(
+      `[transcription:started] videoId=${videoId} jobName=${jobName} outputKey=transcripts/${videoId}.json`
+    );
   } catch (error) {
-    console.error("Failed to start transcription:", error);
+    console.error(
+      `[transcription:start_failed] videoId=${videoId} jobName=${jobName}`,
+      summarizeError(error)
+    );
 
     await prisma.transcription.upsert({
       where: { videoId },

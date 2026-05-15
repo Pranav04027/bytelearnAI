@@ -27,6 +27,16 @@ const INTERNAL_API_BASE_URL =
   process.env.INTERNAL_API_BASE_URL ||
   `http://127.0.0.1:${process.env.PORT || 8000}`;
 
+const summarizeError = (error) => ({
+  name: error?.name,
+  message: error?.message,
+  code: error?.code,
+  type: error?.type,
+  statusCode: error?.$metadata?.httpStatusCode || error?.statusCode,
+  requestId: error?.$metadata?.requestId,
+  cfId: error?.$metadata?.cfId,
+});
+
 export const startPolling = () => {
   console.log("Transcription polling started");
 
@@ -61,9 +71,13 @@ const checkJob = async (videoId, jobName) => {
       })
     );
 
-    const status = response.TranscriptionJob.TranscriptionJobStatus;
+    const job = response.TranscriptionJob;
+    const status = job.TranscriptionJobStatus;
+    const failureReason = job.FailureReason || "none";
 
-    console.log(`Job ${jobName}: ${status}`);
+    console.log(
+      `[transcription:poll] videoId=${videoId} jobName=${jobName} status=${status} failureReason=${JSON.stringify(failureReason)}`
+    );
 
     if (status === "COMPLETED") {
       await handleCompleted(videoId);
@@ -74,15 +88,24 @@ const checkJob = async (videoId, jobName) => {
         where: { videoId },
         data: { status: "FAILED" },
       });
-      console.log(`Transcription FAILED for videoId: ${videoId}`);
+      console.error(
+        `[transcription:aws_failed] videoId=${videoId} jobName=${jobName} failureReason=${JSON.stringify(failureReason)}`
+      );
     }
   } catch (err) {
-    console.error(`Error checking job ${jobName}:`, err);
+    console.error(
+      `[transcription:poll_failed] videoId=${videoId} jobName=${jobName}`,
+      summarizeError(err)
+    );
   }
 };
 
 const handleCompleted = async (videoId) => {
   try {
+    console.log(
+      `[transcription:fetch_output] videoId=${videoId} bucket=${process.env.S3_BUCKET_NAME} key=transcripts/${videoId}.json`
+    );
+
     const s3Response = await s3.send(
       new GetObjectCommand({
         Bucket: process.env.S3_BUCKET_NAME,
@@ -108,7 +131,13 @@ const handleCompleted = async (videoId) => {
       },
     });
 
-    console.log(`Transcript saved for videoId: ${videoId}`);
+    console.log(
+      `[transcription:saved] videoId=${videoId} transcriptLength=${transcript.length}`
+    );
+
+    console.log(
+      `[transcription:embedding_request] videoId=${videoId} url=${INTERNAL_API_BASE_URL}/api/v1/embeddings/chunk-and-embed`
+    );
 
     const response = await fetch(
       `${INTERNAL_API_BASE_URL}/api/v1/embeddings/chunk-and-embed`,
@@ -123,17 +152,25 @@ const handleCompleted = async (videoId) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(
+        `[transcription:embedding_failed] videoId=${videoId} status=${response.status} body=${errorText}`
+      );
       throw new Error(
         `Embedding route failed for videoId ${videoId} with status ${response.status}: ${errorText}`
       );
     }
 
-    console.log(`Embeddings created for videoId: ${videoId}`);
+    console.log(`[transcription:embedding_succeeded] videoId=${videoId}`);
   } catch (error) {
     await prisma.transcription.update({
       where: { videoId },
       data: { status: "FAILED" },
     });
+
+    console.error(
+      `[transcription:handle_completed_failed] videoId=${videoId}`,
+      summarizeError(error)
+    );
 
     throw error;
   }
