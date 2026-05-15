@@ -178,6 +178,19 @@ const ensureModel = (model, message) => {
   return model;
 };
 
+const buildFallbackAnswer = (question, matches) => {
+  const topMatches = matches.slice(0, 3);
+  const excerpts = topMatches
+    .map((match) => `Chunk ${match.chunkIndex}: ${match.content}`)
+    .join("\n\n");
+
+  return [
+    `I could not generate a full AI answer right now, but these transcript parts look most relevant to "${question}":`,
+    excerpts,
+    "Use those sections to answer the question directly, or try again in a moment.",
+  ].join("\n\n");
+};
+
 const chunkAndEmbed = async (req, res, next) => {
   try {
     const { transcript: transcriptFromBody, videoId } = req.body;
@@ -329,18 +342,22 @@ const answerQuestionFromTranscript = async (req, res, next) => {
         message: "question cannot be empty",
       });
     }
-      
-    const isImportant = await getImpInfo(cleanQuestion);
-    
-    if (isImportant) {
-        await saveInMem(req.user.id,isImportant)
-    }
-      
-    ensureModel(aiModel, "Gemini answer model is not configured");
 
     initializeSse(res);
     streamOpened = true;
     writeSseEvent(res, "start", { videoId });
+
+    if (req.user?.id) {
+      try {
+        const isImportant = await getImpInfo(cleanQuestion);
+
+        if (isImportant) {
+          await saveInMem(req.user.id, isImportant);
+        }
+      } catch (error) {
+        console.warn("Skipping learner-memory update for transcript answer:", error.message);
+      }
+    }
 
     const queryEmbedding = await generateEmbedding(cleanQuestion);
     const vectorLiteral = createVectorLiteral(queryEmbedding);
@@ -375,19 +392,35 @@ const answerQuestionFromTranscript = async (req, res, next) => {
       .join("\n\n");
 
     let memory = "";
-    try {
+    if (req.user?.id) {
+      try {
       memory = (await retriveFromMem(req.user.id))?.trim() || "";
-    } catch (_) {
-      memory = "";
+      } catch (error) {
+        console.warn("Skipping learner-memory retrieval for transcript answer:", error.message);
+        memory = "";
+      }
     }
 
-    const answer = await streamAnswerWithContext(
-      cleanQuestion,
-      contextText,
-      memory,
-      res,
-      () => clientClosed
-    );
+    let answer;
+    try {
+      answer = await streamAnswerWithContext(
+        cleanQuestion,
+        contextText,
+        memory,
+        res,
+        () => clientClosed
+      );
+    } catch (error) {
+      console.error("Transcript answer generation failed:", error);
+
+      answer = buildFallbackAnswer(cleanQuestion, matches);
+
+      if (!clientClosed) {
+        writeSseEvent(res, "token", {
+          text: `${answer}\n`,
+        });
+      }
+    }
 
     if (!clientClosed) {
       writeSseEvent(res, "done", { answer });
@@ -418,7 +451,16 @@ const streamAnswerWithContext = async (
     throw new Error("Question and context are required to generate an answer");
   }
 
-  const model = ensureModel(aiModel, "Gemini answer model is not configured");
+  const model = aiModel;
+
+  if (!model) {
+    return buildFallbackAnswer(cleanQuestion, contextText
+      .split("\n\n")
+      .map((content, index) => ({
+        chunkIndex: index,
+        content,
+      })));
+  }
 
   const prompt = `
 You are a brilliant, friendly, and authoritative AI tutor explaining a video to a student.
