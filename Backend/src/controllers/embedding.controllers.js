@@ -191,6 +191,20 @@ const buildFallbackAnswer = (question, matches) => {
   ].join("\n\n");
 };
 
+const isSummaryQuestion = (question) => {
+  const normalized = question.toLowerCase();
+  return [
+    "what is this video about",
+    "what's this video about",
+    "summarize this video",
+    "summary of this video",
+    "give me a summary",
+    "overview of this video",
+    "what does this video cover",
+    "what is this about",
+  ].some((phrase) => normalized.includes(phrase));
+};
+
 const chunkAndEmbed = async (req, res, next) => {
   try {
     const { transcript: transcriptFromBody, videoId } = req.body;
@@ -361,20 +375,51 @@ const answerQuestionFromTranscript = async (req, res, next) => {
 
     const queryEmbedding = await generateEmbedding(cleanQuestion);
     const vectorLiteral = createVectorLiteral(queryEmbedding);
+    const useStrictSimilarityCutoff = embeddingProvider === "gemini";
 
-    const matches = await prisma.$queryRaw`
-      SELECT
-        id,
-        content,
-        "chunkIndex",
-        1 - (embedding <=> CAST(${vectorLiteral} AS vector)) AS similarity
-      FROM "TranscriptChunk"
-      WHERE "videoId" = ${videoId}
-      AND embedding IS NOT NULL
-      AND 1 - (embedding <=> CAST(${vectorLiteral} AS vector)) > 0.3
-      ORDER BY similarity DESC
-      LIMIT 5;
-    `;
+    let matches = [];
+
+    if (useStrictSimilarityCutoff) {
+      matches = await prisma.$queryRaw`
+        SELECT
+          id,
+          content,
+          "chunkIndex",
+          1 - (embedding <=> CAST(${vectorLiteral} AS vector)) AS similarity
+        FROM "TranscriptChunk"
+        WHERE "videoId" = ${videoId}
+        AND embedding IS NOT NULL
+        AND 1 - (embedding <=> CAST(${vectorLiteral} AS vector)) > 0.3
+        ORDER BY similarity DESC
+        LIMIT 5;
+      `;
+    } else {
+      matches = await prisma.$queryRaw`
+        SELECT
+          id,
+          content,
+          "chunkIndex",
+          1 - (embedding <=> CAST(${vectorLiteral} AS vector)) AS similarity
+        FROM "TranscriptChunk"
+        WHERE "videoId" = ${videoId}
+        AND embedding IS NOT NULL
+        ORDER BY similarity DESC
+        LIMIT 5;
+      `;
+    }
+
+    if ((!matches || matches.length === 0) && isSummaryQuestion(cleanQuestion)) {
+      matches = await prisma.transcriptChunk.findMany({
+        where: { videoId },
+        orderBy: { chunkIndex: "asc" },
+        take: 5,
+        select: {
+          id: true,
+          content: true,
+          chunkIndex: true,
+        },
+      });
+    }
 
     if (!matches || matches.length === 0) {
       writeSseEvent(res, "token", {
