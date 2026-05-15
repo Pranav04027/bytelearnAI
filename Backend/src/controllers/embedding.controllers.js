@@ -8,10 +8,24 @@ const { Prisma } = prismaPkg;
 import {saveInMem, getImpInfo, retriveFromMem} from "../utils/supermemory.js"
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
+const geminiEmbeddingModel =
+  process.env.GEMINI_EMBEDDING_MODEL || "text-embedding-004";
+const embeddingProvider = (
+  process.env.EMBEDDING_PROVIDER || "auto"
+).toLowerCase();
+const EMBEDDING_DIMENSION = 768;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
-const embeddingModel = genAI?.getGenerativeModel({
-  model: "gemini-embedding-001",
-});
+const embeddingModel = genAI?.getGenerativeModel(
+  {
+    model: geminiEmbeddingModel,
+  },
+  {
+    apiVersion: process.env.GEMINI_API_VERSION || "v1beta",
+    baseUrl:
+      process.env.GEMINI_API_BASE_URL ||
+      "https://generativelanguage.googleapis.com",
+  }
+);
 
 export const aiModel = genAI?.getGenerativeModel({
   model: "gemini-2.5-flash-lite",
@@ -42,6 +56,118 @@ const writeSseEvent = (res, event, data) => {
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 };
 
+const hashString = (input) => {
+  let hash = 2166136261;
+
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+};
+
+const normalizeVector = (vector) => {
+  const magnitude = Math.hypot(...vector);
+
+  if (!magnitude) {
+    vector[0] = 1;
+    return vector;
+  }
+
+  return vector.map((value) => value / magnitude);
+};
+
+const createLocalEmbedding = (text) => {
+  const vector = new Array(EMBEDDING_DIMENSION).fill(0);
+  const normalizedText = text.toLowerCase().replace(/\s+/g, " ").trim();
+  const tokens = normalizedText.match(/[a-z0-9]+/g) || [];
+  const features = [...tokens];
+
+  for (let index = 0; index < tokens.length - 1; index += 1) {
+    features.push(`${tokens[index]} ${tokens[index + 1]}`);
+  }
+
+  for (let index = 0; index < normalizedText.length - 2; index += 1) {
+    const trigram = normalizedText.slice(index, index + 3);
+    if (!/\s{2,}/.test(trigram)) {
+      features.push(`~${trigram}`);
+    }
+  }
+
+  if (features.length === 0) {
+    return normalizeVector(vector);
+  }
+
+  for (const feature of features) {
+    const baseHash = hashString(feature);
+    const altHash = hashString(`${feature}:alt`);
+    const weight = feature.startsWith("~") ? 0.35 : feature.includes(" ") ? 1.25 : 1;
+
+    const firstIndex = baseHash % EMBEDDING_DIMENSION;
+    const secondIndex = altHash % EMBEDDING_DIMENSION;
+    const firstSign = (baseHash & 1) === 0 ? 1 : -1;
+    const secondSign = (altHash & 1) === 0 ? 1 : -1;
+
+    vector[firstIndex] += firstSign * weight;
+    vector[secondIndex] += secondSign * weight * 0.5;
+  }
+
+  return normalizeVector(vector);
+};
+
+const isGeminiLocationRestriction = (error) => {
+  const message = error?.message?.toLowerCase() || "";
+  return (
+    message.includes("user location is not supported") ||
+    message.includes("location is not supported for the api use")
+  );
+};
+
+const generateEmbedding = async (text) => {
+  const cleanText = text?.trim();
+
+  if (!cleanText) {
+    throw new Error("Embedding input cannot be empty");
+  }
+
+  if (embeddingProvider === "local") {
+    return createLocalEmbedding(cleanText);
+  }
+
+  if (!embeddingModel) {
+    if (embeddingProvider === "gemini") {
+      const error = new Error("GEMINI_API_KEY is not configured");
+      error.statusCode = 500;
+      throw error;
+    }
+
+    return createLocalEmbedding(cleanText);
+  }
+
+  try {
+    const result = await embeddingModel.embedContent(cleanText);
+    const embedding = result?.embedding?.values;
+
+    if (!Array.isArray(embedding) || embedding.length === 0) {
+      throw new Error("Gemini returned an empty embedding");
+    }
+
+    return normalizeVector(embedding.slice(0, EMBEDDING_DIMENSION));
+  } catch (error) {
+    if (embeddingProvider === "gemini") {
+      throw error;
+    }
+
+    console.warn(
+      `Falling back to local embeddings after Gemini failure${isGeminiLocationRestriction(error) ? " due to unsupported location" : ""}:`,
+      error.message
+    );
+
+    return createLocalEmbedding(cleanText);
+  }
+};
+
 const ensureModel = (model, message) => {
   if (!model) {
     const error = new Error(message);
@@ -62,8 +188,6 @@ const chunkAndEmbed = async (req, res, next) => {
         message: "videoId is required",
       });
     }
-
-    ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
 
     const transcription = await prisma.transcription.findUnique({
       where: { videoId },
@@ -114,19 +238,14 @@ const chunkAndEmbed = async (req, res, next) => {
         continue;
       }
 
-      const result = await embeddingModel.embedContent(content);
-      const embedding = result?.embedding?.values;
-
-      if (!Array.isArray(embedding) || embedding.length === 0) {
-        throw new Error(`Embedding generation failed for chunk ${chunkIndex}`);
-      }
+      const embedding = await generateEmbedding(content);
 
       embeddedChunks.push({
         id: randomUUID(),
         videoId,
         chunkIndex,
         content,
-        embedding: embedding.slice(0, 768), // Truncate to 768 dimensions using MRL
+        embedding,
       });
     }
 
@@ -216,22 +335,15 @@ const answerQuestionFromTranscript = async (req, res, next) => {
     if (isImportant) {
         await saveInMem(req.user.id,isImportant)
     }
-
-    ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
+      
     ensureModel(aiModel, "Gemini answer model is not configured");
 
     initializeSse(res);
     streamOpened = true;
     writeSseEvent(res, "start", { videoId });
 
-    const result = await embeddingModel.embedContent(cleanQuestion);
-    const queryEmbedding = result?.embedding?.values;
-
-    if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
-      throw new Error("Failed to generate embedding for the question");
-    }
-
-    const vectorLiteral = createVectorLiteral(queryEmbedding.slice(0, 768));
+    const queryEmbedding = await generateEmbedding(cleanQuestion);
+    const vectorLiteral = createVectorLiteral(queryEmbedding);
 
     const matches = await prisma.$queryRaw`
       SELECT

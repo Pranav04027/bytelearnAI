@@ -82,6 +82,8 @@ const checkJob = async (videoId, jobName) => {
 };
 
 const handleCompleted = async (videoId) => {
+  let transcriptSaved = false;
+
   try {
     const s3Response = await s3.send(
       new GetObjectCommand({
@@ -107,6 +109,7 @@ const handleCompleted = async (videoId) => {
         status: "TRANSCRIBED",
       },
     });
+    transcriptSaved = true;
 
     console.log(`Transcript saved for videoId: ${videoId}`);
 
@@ -132,7 +135,7 @@ const handleCompleted = async (videoId) => {
   } catch (error) {
     await prisma.transcription.update({
       where: { videoId },
-      data: { status: "FAILED" },
+      data: { status: transcriptSaved ? "TRANSCRIBED" : "FAILED" },
     });
 
     throw error;
