@@ -10,7 +10,8 @@
     "start": "node src/index.js",
     "db:push": "npx prisma db push",
     "db:generate": "npx prisma generate",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "retry-transcriptions": "node scripts/retry-transcriptions.js"
   },
   "keywords": [
     "nodejs",

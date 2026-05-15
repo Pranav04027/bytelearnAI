@@ -8,8 +8,12 @@ const { Prisma } = prismaPkg;
 import {saveInMem, getImpInfo, retriveFromMem} from "../utils/supermemory.js"
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
+const configuredEmbeddingModel =
+  process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-001";
 const geminiEmbeddingModel =
-  process.env.GEMINI_EMBEDDING_MODEL || "text-embedding-004";
+  configuredEmbeddingModel === "text-embedding-004"
+    ? "gemini-embedding-001"
+    : configuredEmbeddingModel;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 const embeddingModel = genAI?.getGenerativeModel(
   {
@@ -74,6 +78,12 @@ const ensureModel = (model, message) => {
 const chunkAndEmbed = async (req, res, next) => {
   try {
     const { transcript: transcriptFromBody, videoId } = req.body;
+
+    if (configuredEmbeddingModel !== geminiEmbeddingModel) {
+      console.warn(
+        `[embedding:model_override] configured=${configuredEmbeddingModel} effective=${geminiEmbeddingModel} reason=unsupported_for_gemini_embedContent`
+      );
+    }
 
     console.log(
       `[embedding:chunk_and_embed_start] videoId=${videoId || "missing"} model=${geminiEmbeddingModel} apiVersion=${process.env.GEMINI_API_VERSION || "v1beta"}`
