@@ -10,10 +10,6 @@ import {saveInMem, getImpInfo, retriveFromMem} from "../utils/supermemory.js"
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const geminiEmbeddingModel =
   process.env.GEMINI_EMBEDDING_MODEL || "text-embedding-004";
-const embeddingProvider = (
-  process.env.EMBEDDING_PROVIDER || "auto"
-).toLowerCase();
-const EMBEDDING_DIMENSION = 768;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 const embeddingModel = genAI?.getGenerativeModel(
   {
@@ -56,118 +52,6 @@ const writeSseEvent = (res, event, data) => {
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 };
 
-const hashString = (input) => {
-  let hash = 2166136261;
-
-  for (let index = 0; index < input.length; index += 1) {
-    hash ^= input.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  return hash >>> 0;
-};
-
-const normalizeVector = (vector) => {
-  const magnitude = Math.hypot(...vector);
-
-  if (!magnitude) {
-    vector[0] = 1;
-    return vector;
-  }
-
-  return vector.map((value) => value / magnitude);
-};
-
-const createLocalEmbedding = (text) => {
-  const vector = new Array(EMBEDDING_DIMENSION).fill(0);
-  const normalizedText = text.toLowerCase().replace(/\s+/g, " ").trim();
-  const tokens = normalizedText.match(/[a-z0-9]+/g) || [];
-  const features = [...tokens];
-
-  for (let index = 0; index < tokens.length - 1; index += 1) {
-    features.push(`${tokens[index]} ${tokens[index + 1]}`);
-  }
-
-  for (let index = 0; index < normalizedText.length - 2; index += 1) {
-    const trigram = normalizedText.slice(index, index + 3);
-    if (!/\s{2,}/.test(trigram)) {
-      features.push(`~${trigram}`);
-    }
-  }
-
-  if (features.length === 0) {
-    return normalizeVector(vector);
-  }
-
-  for (const feature of features) {
-    const baseHash = hashString(feature);
-    const altHash = hashString(`${feature}:alt`);
-    const weight = feature.startsWith("~") ? 0.35 : feature.includes(" ") ? 1.25 : 1;
-
-    const firstIndex = baseHash % EMBEDDING_DIMENSION;
-    const secondIndex = altHash % EMBEDDING_DIMENSION;
-    const firstSign = (baseHash & 1) === 0 ? 1 : -1;
-    const secondSign = (altHash & 1) === 0 ? 1 : -1;
-
-    vector[firstIndex] += firstSign * weight;
-    vector[secondIndex] += secondSign * weight * 0.5;
-  }
-
-  return normalizeVector(vector);
-};
-
-const isGeminiLocationRestriction = (error) => {
-  const message = error?.message?.toLowerCase() || "";
-  return (
-    message.includes("user location is not supported") ||
-    message.includes("location is not supported for the api use")
-  );
-};
-
-const generateEmbedding = async (text) => {
-  const cleanText = text?.trim();
-
-  if (!cleanText) {
-    throw new Error("Embedding input cannot be empty");
-  }
-
-  if (embeddingProvider === "local") {
-    return createLocalEmbedding(cleanText);
-  }
-
-  if (!embeddingModel) {
-    if (embeddingProvider === "gemini") {
-      const error = new Error("GEMINI_API_KEY is not configured");
-      error.statusCode = 500;
-      throw error;
-    }
-
-    return createLocalEmbedding(cleanText);
-  }
-
-  try {
-    const result = await embeddingModel.embedContent(cleanText);
-    const embedding = result?.embedding?.values;
-
-    if (!Array.isArray(embedding) || embedding.length === 0) {
-      throw new Error("Gemini returned an empty embedding");
-    }
-
-    return normalizeVector(embedding.slice(0, EMBEDDING_DIMENSION));
-  } catch (error) {
-    if (embeddingProvider === "gemini") {
-      throw error;
-    }
-
-    console.warn(
-      `Falling back to local embeddings after Gemini failure${isGeminiLocationRestriction(error) ? " due to unsupported location" : ""}:`,
-      error.message
-    );
-
-    return createLocalEmbedding(cleanText);
-  }
-};
-
 const ensureModel = (model, message) => {
   if (!model) {
     const error = new Error(message);
@@ -176,33 +60,6 @@ const ensureModel = (model, message) => {
   }
 
   return model;
-};
-
-const buildFallbackAnswer = (question, matches) => {
-  const topMatches = matches.slice(0, 3);
-  const excerpts = topMatches
-    .map((match) => `Chunk ${match.chunkIndex}: ${match.content}`)
-    .join("\n\n");
-
-  return [
-    `I could not generate a full AI answer right now, but these transcript parts look most relevant to "${question}":`,
-    excerpts,
-    "Use those sections to answer the question directly, or try again in a moment.",
-  ].join("\n\n");
-};
-
-const isSummaryQuestion = (question) => {
-  const normalized = question.toLowerCase();
-  return [
-    "what is this video about",
-    "what's this video about",
-    "summarize this video",
-    "summary of this video",
-    "give me a summary",
-    "overview of this video",
-    "what does this video cover",
-    "what is this about",
-  ].some((phrase) => normalized.includes(phrase));
 };
 
 const chunkAndEmbed = async (req, res, next) => {
@@ -215,6 +72,8 @@ const chunkAndEmbed = async (req, res, next) => {
         message: "videoId is required",
       });
     }
+
+    ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
 
     const transcription = await prisma.transcription.findUnique({
       where: { videoId },
@@ -265,14 +124,19 @@ const chunkAndEmbed = async (req, res, next) => {
         continue;
       }
 
-      const embedding = await generateEmbedding(content);
+      const result = await embeddingModel.embedContent(content);
+      const embedding = result?.embedding?.values;
+
+      if (!Array.isArray(embedding) || embedding.length === 0) {
+        throw new Error(`Embedding generation failed for chunk ${chunkIndex}`);
+      }
 
       embeddedChunks.push({
         id: randomUUID(),
         videoId,
         chunkIndex,
         content,
-        embedding,
+        embedding: embedding.slice(0, 768), // Truncate to 768 dimensions using MRL
       });
     }
 
@@ -356,70 +220,42 @@ const answerQuestionFromTranscript = async (req, res, next) => {
         message: "question cannot be empty",
       });
     }
+      
+    const isImportant = await getImpInfo(cleanQuestion);
+    
+    if (isImportant) {
+        await saveInMem(req.user.id,isImportant)
+    }
+      
+    ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
+    ensureModel(aiModel, "Gemini answer model is not configured");
 
     initializeSse(res);
     streamOpened = true;
     writeSseEvent(res, "start", { videoId });
 
-    if (req.user?.id) {
-      try {
-        const isImportant = await getImpInfo(cleanQuestion);
+    const result = await embeddingModel.embedContent(cleanQuestion);
+    const queryEmbedding = result?.embedding?.values;
 
-        if (isImportant) {
-          await saveInMem(req.user.id, isImportant);
-        }
-      } catch (error) {
-        console.warn("Skipping learner-memory update for transcript answer:", error.message);
-      }
+    if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
+      throw new Error("Failed to generate embedding for the question");
     }
 
-    const queryEmbedding = await generateEmbedding(cleanQuestion);
-    const vectorLiteral = createVectorLiteral(queryEmbedding);
-    const useStrictSimilarityCutoff = embeddingProvider === "gemini";
+    const vectorLiteral = createVectorLiteral(queryEmbedding.slice(0, 768));
 
-    let matches = [];
-
-    if (useStrictSimilarityCutoff) {
-      matches = await prisma.$queryRaw`
-        SELECT
-          id,
-          content,
-          "chunkIndex",
-          1 - (embedding <=> CAST(${vectorLiteral} AS vector)) AS similarity
-        FROM "TranscriptChunk"
-        WHERE "videoId" = ${videoId}
-        AND embedding IS NOT NULL
-        AND 1 - (embedding <=> CAST(${vectorLiteral} AS vector)) > 0.3
-        ORDER BY similarity DESC
-        LIMIT 5;
-      `;
-    } else {
-      matches = await prisma.$queryRaw`
-        SELECT
-          id,
-          content,
-          "chunkIndex",
-          1 - (embedding <=> CAST(${vectorLiteral} AS vector)) AS similarity
-        FROM "TranscriptChunk"
-        WHERE "videoId" = ${videoId}
-        AND embedding IS NOT NULL
-        ORDER BY similarity DESC
-        LIMIT 5;
-      `;
-    }
-
-    if ((!matches || matches.length === 0) && isSummaryQuestion(cleanQuestion)) {
-      matches = await prisma.transcriptChunk.findMany({
-        where: { videoId },
-        orderBy: { chunkIndex: "asc" },
-        take: 5,
-        select: {
-          id: true,
-          content: true,
-          chunkIndex: true,
-        },
-      });
-    }
+    const matches = await prisma.$queryRaw`
+      SELECT
+        id,
+        content,
+        "chunkIndex",
+        1 - (embedding <=> CAST(${vectorLiteral} AS vector)) AS similarity
+      FROM "TranscriptChunk"
+      WHERE "videoId" = ${videoId}
+      AND embedding IS NOT NULL
+      AND 1 - (embedding <=> CAST(${vectorLiteral} AS vector)) > 0.3
+      ORDER BY similarity DESC
+      LIMIT 5;
+    `;
 
     if (!matches || matches.length === 0) {
       writeSseEvent(res, "token", {
@@ -437,35 +273,19 @@ const answerQuestionFromTranscript = async (req, res, next) => {
       .join("\n\n");
 
     let memory = "";
-    if (req.user?.id) {
-      try {
-      memory = (await retriveFromMem(req.user.id))?.trim() || "";
-      } catch (error) {
-        console.warn("Skipping learner-memory retrieval for transcript answer:", error.message);
-        memory = "";
-      }
-    }
-
-    let answer;
     try {
-      answer = await streamAnswerWithContext(
-        cleanQuestion,
-        contextText,
-        memory,
-        res,
-        () => clientClosed
-      );
-    } catch (error) {
-      console.error("Transcript answer generation failed:", error);
-
-      answer = buildFallbackAnswer(cleanQuestion, matches);
-
-      if (!clientClosed) {
-        writeSseEvent(res, "token", {
-          text: `${answer}\n`,
-        });
-      }
+      memory = (await retriveFromMem(req.user.id))?.trim() || "";
+    } catch (_) {
+      memory = "";
     }
+
+    const answer = await streamAnswerWithContext(
+      cleanQuestion,
+      contextText,
+      memory,
+      res,
+      () => clientClosed
+    );
 
     if (!clientClosed) {
       writeSseEvent(res, "done", { answer });
@@ -496,16 +316,7 @@ const streamAnswerWithContext = async (
     throw new Error("Question and context are required to generate an answer");
   }
 
-  const model = aiModel;
-
-  if (!model) {
-    return buildFallbackAnswer(cleanQuestion, contextText
-      .split("\n\n")
-      .map((content, index) => ({
-        chunkIndex: index,
-        content,
-      })));
-  }
+  const model = ensureModel(aiModel, "Gemini answer model is not configured");
 
   const prompt = `
 You are a brilliant, friendly, and authoritative AI tutor explaining a video to a student.
