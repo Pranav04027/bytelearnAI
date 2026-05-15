@@ -94,7 +94,7 @@ const UploadVideo = () => {
             if (newId) {
                 if (quizChoice === "manual") {
                     navigate(`/quizzes/create/${newId}`);
-                } else {
+                } else if (quizChoice === "ai") {
                     navigate(`/videos/${newId}`);
                 }
             }
@@ -246,17 +246,17 @@ const UploadVideo = () => {
                                 checked={quizChoice === "manual"}
                                 onChange={() => setQuizChoice("manual")}
                             />
-                            <span>Manually make quiz</span>
+                            <span>Manual</span>
                         </label>
                         <label className="inline-flex items-center gap-2">
                             <input
                                 type="radio"
                                 name="quizChoice"
-                                value="none"
-                                checked={quizChoice === "none"}
-                                onChange={() => setQuizChoice("none")}
+                                value="ai"
+                                checked={quizChoice === "ai"}
+                                onChange={() => setQuizChoice("ai")}
                             />
-                            <span>No quiz ()</span>
+                            <span>Personalised quizzes by AI</span>
                         </label>
                     </div>
 
