@@ -111,12 +111,12 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose }) => {
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/20 z-[50] transition-opacity"
+          className="fixed inset-0 bg-black/20 z-40 transition-opacity"
           onClick={onClose}
         />
       )}
       <div
-        className={`fixed top-0 right-0 h-full w-full md:w-[400px] bg-white shadow-2xl transform transition-transform duration-300 z-[60] flex flex-col ${
+        className={`fixed top-0 right-0 h-full w-full md:w-[400px] bg-white shadow-2xl transform transition-transform duration-300 z-50 flex flex-col ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
