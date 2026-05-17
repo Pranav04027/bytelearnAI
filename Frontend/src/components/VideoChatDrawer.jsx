@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import axiosInstance from "../api/axios.js";
 
 const VideoChatDrawer = ({ videoId, isOpen, onClose }) => {
@@ -107,7 +108,7 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose }) => {
     return content.includes("I couldn't find a relevant answer in this video's transcript");
   };
 
-  return (
+  return createPortal(
     <>
       {isOpen && (
         <div
@@ -192,7 +193,8 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose }) => {
           </form>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 };
 
