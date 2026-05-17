@@ -648,7 +648,7 @@ const VideoDetail = () => {
                         onClick={() => setIsChatDrawerOpen(true)}
                         className="rounded-full bg-indigo-100 text-indigo-600 p-2.5 font-bold hover:bg-indigo-200 hover:shadow transition-colors ring-2 ring-indigo-200"
                       >
-                        <span className="text-indigo-600">✨</span> Ask
+                        Ask
                       </button>
                       <p className="text-[#1b0e0e] text-sm font-medium leading-normal">Ask the Video</p>
                     </div>
