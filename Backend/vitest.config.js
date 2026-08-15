@@ -3,7 +3,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/test/**/*.test.js"],
+        include: ["src/test/**/*.test.js",
+          "evals/**/*.test.ts",],
     clearMocks: true,
     passWithNoTests: true
   }

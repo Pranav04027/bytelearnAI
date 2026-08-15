@@ -103,4 +103,22 @@ describe("temporal IoU relevance", () => {
     expect(isRelevant(g, r)).toBe(true);
     expect(isRelevant(g, r, 0.3)).toBe(false);
   });
+
+  it("11. invalid thresholds throw", () => {
+    const g = gold(0, 100);
+    const r = retrieved(50, 150);
+    expect(() => isRelevant(g, r, 0)).toThrow();
+    expect(() => isRelevant(g, r, -0.1)).toThrow();
+    expect(() => isRelevant(g, r, 1.1)).toThrow();
+    expect(() => isRelevant(g, r, NaN)).toThrow();
+    expect(() => isRelevant(g, r, Infinity)).toThrow();
+  });
+
+  it("12. threshold = 1 is valid", () => {
+    const g = gold(0, 100);
+    const r = retrieved(0, 100);
+    expect(isRelevant(g, r, 1)).toBe(true);
+    const r2 = retrieved(0, 50);
+    expect(isRelevant(g, r2, 1)).toBe(false);
+  });
 });

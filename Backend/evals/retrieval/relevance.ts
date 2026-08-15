@@ -35,10 +35,6 @@ export function calculateTemporalIoU(
   const retrievedDuration = retrieved.endMs - retrieved.startMs;
   const union = goldDuration + retrievedDuration - overlap;
 
-  if (union <= 0) {
-    return overlap > 0 ? 1 : 0;
-  }
-
   return overlap / union;
 }
 
@@ -47,8 +43,15 @@ export function isRelevant(
   retrieved: TimestampRange,
   threshold: number = 0.25
 ): boolean {
-  if (typeof threshold !== "number" || !Number.isFinite(threshold)) {
-    throw new Error(`threshold must be a finite number (got ${threshold}).`);
+  if (
+    typeof threshold !== "number" ||
+    !Number.isFinite(threshold) ||
+    threshold <= 0 ||
+    threshold > 1
+  ) {
+    throw new Error(
+      `threshold must be a finite number greater than 0 and at most 1 (got ${threshold}).`
+    );
   }
 
   return calculateTemporalIoU(gold, retrieved) >= threshold;
