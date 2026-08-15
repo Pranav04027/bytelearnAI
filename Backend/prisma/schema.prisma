@@ -53,10 +53,14 @@ model TranscriptChunk {
   videoId    String
   chunkIndex Int
   content    String
+  startMs    Int?
+  endMs      Int?
   embedding  Unsupported("vector(768)")?
   createdAt  DateTime @default(now())
 
   video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, chunkIndex])
 }
 
 model WatchHistory {
@@ -86,38 +90,38 @@ model Progress {
   @@unique([userId, videoId])
 }
 
-  model Video {
-    id          String     @id @default(uuid())
-    videos3Key  String
-    thumbnail   String     @unique
-    title       String
-    description String
-    category    String
-    difficulty  Difficulty
-    tags        String[]   @default([])
-    views       Int        @default(0)
-    duration    String
-    isPublished Boolean    @default(true)
-    ownerId     String
-    createdAt   DateTime   @default(now())
-    updatedAt   DateTime   @updatedAt
+model Video {
+  id          String     @id @default(uuid())
+  videos3Key  String
+  thumbnail   String     @unique
+  title       String
+  description String 
+  category    String
+  difficulty  Difficulty
+  tags        String[]   @default([])
+  views       Int        @default(0)
+  duration    String
+  isPublished Boolean    @default(true)
+  ownerId     String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-    // Relations
-    owner        User            @relation("VideoOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-    videoViews   VideoView[]
-    quiz         Quiz?
-    quizAttempts QuizAttempt[]
-    playlists    PlaylistVideo[]
-    comments     Comment[]
-    bookmarks    Bookmark[]
-    likes        Like[]
-    watchHistory WatchHistory[]
-    progress     Progress[]
-    transcription   Transcription?
-    transcriptChunks TranscriptChunk[]
+  // Relations
+  owner        User            @relation("VideoOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  videoViews   VideoView[]
+  quiz         Quiz?
+  quizAttempts QuizAttempt[]
+  playlists    PlaylistVideo[]
+  comments     Comment[]
+  bookmarks    Bookmark[]
+  likes        Like[]
+  watchHistory WatchHistory[]
+  progress     Progress[]
+  transcription   Transcription?
+  transcriptChunks TranscriptChunk[]
 
-    @@unique([title, ownerId])
-  }
+  @@unique([title, ownerId])
+}
 
 model VideoView {
   id        String   @id @default(uuid())

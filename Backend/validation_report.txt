@@ -1,0 +1,8 @@
+Unique IDs: PASS
+All video IDs valid: PASS
+All answerable examples have evidence: PASS
+All evidence timestamps exist in DB: PASS
+All required facts supported: PASS
+All reference answers supported: PASS
+All unanswerable examples transcript-checked: PASS
+All multi-evidence examples genuinely require multiple spans: PASS

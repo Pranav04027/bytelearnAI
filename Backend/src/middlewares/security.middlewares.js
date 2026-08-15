@@ -20,6 +20,12 @@ export const applysecuritymiddlewares = (app) => {
   );
 
   //Body parsers
+  // The transcription pipeline posts the full transcript to chunk-and-embed,
+  // which can exceed the default 16kb limit.
+  app.use(
+    "/api/v1/embeddings/chunk-and-embed",
+    express.json({ limit: "2mb" })
+  );
   app.use(express.json({ limit: "16kb" }));
   app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 

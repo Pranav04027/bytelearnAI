@@ -27,6 +27,8 @@ const INTERNAL_API_BASE_URL =
   process.env.INTERNAL_API_BASE_URL ||
   `http://127.0.0.1:${process.env.PORT || 8000}`;
 
+import { rebuildVideoChunks } from "../services/chunkingService.js";
+
 const summarizeError = (error) => ({
   name: error?.name,
   message: error?.message,
@@ -40,7 +42,7 @@ const summarizeError = (error) => ({
 export const startPolling = () => {
   console.log("Transcription polling started");
 
-  setInterval(async () => {
+  const poll = async () => {
     try {
       const pending = await prisma.transcription.findMany({
         where: { 
@@ -50,17 +52,20 @@ export const startPolling = () => {
         select: { videoId: true, transcribeJobName: true },
       });
 
-      if (pending.length === 0) return;
-
-      console.log(`Checking ${pending.length} pending transcription(s)`);
-
-      for (const record of pending) {
-        await checkJob(record.videoId, record.transcribeJobName);
+      if (pending.length > 0) {
+        console.log(`Checking ${pending.length} pending transcription(s)`);
+        for (const record of pending) {
+          await checkJob(record.videoId, record.transcribeJobName);
+        }
       }
     } catch (err) {
       console.error("Polling error:", err);
+    } finally {
+      setTimeout(poll, 30000);
     }
-  }, 30000);
+  };
+
+  poll();
 };
 
 const checkJob = async (videoId, jobName) => {
@@ -135,30 +140,16 @@ const handleCompleted = async (videoId) => {
       `[transcription:saved] videoId=${videoId} transcriptLength=${transcript.length}`
     );
 
-    console.log(
-      `[transcription:embedding_request] videoId=${videoId} url=${INTERNAL_API_BASE_URL}/api/v1/embeddings/chunk-and-embed`
-    );
+    console.log(`[transcription:embedding_start] videoId=${videoId}`);
 
-    const response = await fetch(
-      `${INTERNAL_API_BASE_URL}/api/v1/embeddings/chunk-and-embed`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ videoId, transcript }),
-      }
-    );
+    await rebuildVideoChunks(videoId);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(
-        `[transcription:embedding_failed] videoId=${videoId} status=${response.status} body=${errorText}`
-      );
-      throw new Error(
-        `Embedding route failed for videoId ${videoId} with status ${response.status}: ${errorText}`
-      );
-    }
+    await prisma.transcription.update({
+      where: { videoId },
+      data: {
+        status: "READY",
+      },
+    });
 
     console.log(`[transcription:embedding_succeeded] videoId=${videoId}`);
   } catch (error) {

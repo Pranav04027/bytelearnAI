@@ -77,13 +77,7 @@ const ensureModel = (model, message) => {
 
 const chunkAndEmbed = async (req, res, next) => {
   try {
-    const { transcript: transcriptFromBody, videoId } = req.body;
-
-    if (configuredEmbeddingModel !== geminiEmbeddingModel) {
-      console.warn(
-        `[embedding:model_override] configured=${configuredEmbeddingModel} effective=${geminiEmbeddingModel} reason=unsupported_for_gemini_embedContent`
-      );
-    }
+    const { videoId } = req.body;
 
     console.log(
       `[embedding:chunk_and_embed_start] videoId=${videoId || "missing"} model=${geminiEmbeddingModel} apiVersion=${process.env.GEMINI_API_VERSION || "v1beta"}`
@@ -96,126 +90,18 @@ const chunkAndEmbed = async (req, res, next) => {
       });
     }
 
-    ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
+    const { rebuildVideoChunks } = await import("../services/chunkingService.js");
+    const chunksCreated = await rebuildVideoChunks(videoId);
 
-    const transcription = await prisma.transcription.findUnique({
+    await prisma.transcription.update({
       where: { videoId },
-      select: {
-        videoId: true,
-        content: true,
-        status: true,
+      data: {
+        status: "READY",
       },
     });
 
-    if (!transcription) {
-      return res.status(404).json({
-        success: false,
-        message: "Transcription not found for this video",
-      });
-    }
-
-    const transcript =
-      transcriptFromBody?.trim() || transcription.content?.trim();
-
-    if (!transcript) {
-      return res.status(400).json({
-        success: false,
-        message: "Transcript content is empty",
-      });
-    }
-
-    const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 500,
-      chunkOverlap: 50,
-    });
-
-    const chunks = await splitter.createDocuments([transcript]);
-
     console.log(
-      `[embedding:chunk_plan] videoId=${videoId} transcriptLength=${transcript.length} chunks=${chunks.length}`
-    );
-
-    if (chunks.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No transcript chunks were generated",
-      });
-    }
-
-    const embeddedChunks = [];
-
-    for (const [chunkIndex, chunk] of chunks.entries()) {
-      const content = chunk.pageContent?.trim();
-
-      if (!content) {
-        continue;
-      }
-
-      console.log(
-        `[embedding:chunk_request] videoId=${videoId} chunkIndex=${chunkIndex} contentLength=${content.length}`
-      );
-
-      const result = await embeddingModel.embedContent(content);
-      const embedding = result?.embedding?.values;
-
-      if (!Array.isArray(embedding) || embedding.length === 0) {
-        throw new Error(`Embedding generation failed for chunk ${chunkIndex}`);
-      }
-
-      console.log(
-        `[embedding:chunk_success] videoId=${videoId} chunkIndex=${chunkIndex} dimensions=${embedding.length}`
-      );
-
-      embeddedChunks.push({
-        id: randomUUID(),
-        videoId,
-        chunkIndex,
-        content,
-        embedding: embedding.slice(0, 768), // Truncate to 768 dimensions using MRL
-      });
-    }
-
-    if (embeddedChunks.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No valid transcript chunks were available for embedding",
-      });
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.transcriptChunk.deleteMany({
-        where: { videoId },
-      });
-
-      for (const chunk of embeddedChunks) {
-        const vectorLiteral = createVectorLiteral(chunk.embedding);
-
-        await tx.$executeRaw(
-          Prisma.sql`
-            INSERT INTO "TranscriptChunk" ("id", "videoId", "chunkIndex", "content", "embedding", "createdAt")
-            VALUES (
-              ${chunk.id},
-              ${chunk.videoId},
-              ${chunk.chunkIndex},
-              ${chunk.content},
-              CAST(${vectorLiteral} AS vector),
-              NOW()
-            )
-          `
-        );
-      }
-
-      await tx.transcription.update({
-        where: { videoId },
-        data: {
-          content: transcript,
-          status: "READY",
-        },
-      });
-    });
-
-    console.log(
-      `[embedding:chunk_and_embed_succeeded] videoId=${videoId} chunksCreated=${embeddedChunks.length}`
+      `[embedding:chunk_and_embed_succeeded] videoId=${videoId} chunksCreated=${chunksCreated}`
     );
 
     return res.status(200).json({
@@ -223,7 +109,7 @@ const chunkAndEmbed = async (req, res, next) => {
       statusCode: 200,
       data: {
         videoId,
-        chunksCreated: embeddedChunks.length,
+        chunksCreated,
       },
       message: "Transcript chunks and embeddings created",
     });
@@ -291,6 +177,8 @@ const answerQuestionFromTranscript = async (req, res, next) => {
         id,
         content,
         "chunkIndex",
+        "startMs",
+        "endMs",
         1 - (embedding <=> CAST(${vectorLiteral} AS vector)) AS similarity
       FROM "TranscriptChunk"
       WHERE "videoId" = ${videoId}

@@ -11,7 +11,8 @@
     "db:push": "npx prisma db push",
     "db:generate": "npx prisma generate",
     "db:studio": "npx prisma studio",
-    "retry-transcriptions": "node scripts/retry-transcriptions.js"
+    "retry-transcriptions": "node scripts/retry-transcriptions.js",
+    "rebuild-chunks": "node scripts/rebuild-chunks.js"
   },
   "keywords": [
     "nodejs",

@@ -1,0 +1,1415 @@
+[
+  {
+    "id": "matplotlib-sims-exact_term-001",
+    "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+    "question": "Which Python module does the instructor use to compute the average and the standard deviation of all the simulation balances?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "the statistics module",
+    "requiredFacts": [
+      "The statistics module provides mean and standard deviation functions",
+      "It is used to print the average and standard deviation of the simulation results"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 1121570,
+        "endMs": 1145270,
+        "text": "If we run this code, we'll see a pretty wide range of outcomes from ones where we actually lose a little money to ones where we make more than 10 times what we started with. Let's say that we want to understand that overall performance. We can compute some basic statistics on the final balances to help with this. We can use the statistics module that's part of the Python Standard Library."
+      },
+      {
+        "startMs": 1145630,
+        "endMs": 1177080,
+        "text": "It has functions such as mean and STDV for standard deviation to calculate the overall mean and standard deviation of a list. The larger the standard deviation, the more volatile our investment is. So, we can modify our code to import the statistics module, and then at the end of the program, we print out the average and the standard deviation from all of our runs. If we run this code, we see that we get a pretty high balance, and we also get a pretty big standard deviation."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "matplotlib-sims-direct-001",
+    "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+    "question": "What is the purpose of the 'change in balance' function the instructor refactors out of the simulation loop?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "It captures how an investment's balance changes over a single year (e.g. 3% of the current balance), so each loop iteration can update the balance by calling it.",
+    "requiredFacts": [
+      "The function takes the current balance and returns its change after one year",
+      "The 3% annual increase is one such change",
+      "The simulation loop adds this change to the balance each iteration"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 803360,
+        "endMs": 829010,
+        "text": "Let's start with our previous example where we examined the growth in a certificate of deposit over a period of time. We can modify the code from that simulation to handle more general investments. We're going to start by changing the way we compute the change per year. We're going to follow the principle of abstraction to make a separate function that will calculate how the investment will increase or decrease in any particular year."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "matplotlib-sims-paraphrase-001",
+    "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+    "question": "Why can't a guaranteed investment like a certificate of deposit demonstrate the kind of randomness the instructor adds to the model?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "A guaranteed investment's return never varies over time, so it cannot produce the random year-to-year fluctuations the model needs.",
+    "requiredFacts": [
+      "A guaranteed investment's return does not change over time",
+      "Randomness is needed to model fluctuating year-to-year returns"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 853360,
+        "endMs": 877170,
+        "text": "Now unless we have some guaranteed investment like a certificate of deposit, the amount that the investment increases or decreases will change itself over time. Interest rates go up and down, and for investments that are traded like stocks and mutual funds, the fluctuations can be really significant. So suppose we have an investment that we know can fluctuate, but the return will never be negative."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "matplotlib-sims-multi_evidence-001",
+    "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+    "question": "How do the instructor's stock and bond accounts differ in average return and volatility, and what does the 50/50 mixed account show?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "Stocks have the highest average returns but fluctuate the most; bonds have smaller gains and losses and a narrower range of outcomes; the 50/50 mixed account falls between them in both average balance and standard deviation.",
+    "requiredFacts": [
+      "Stocks fluctuate a lot and do best on average",
+      "Bonds have smaller gains and losses",
+      "Bonds have a narrower range of outcomes than stocks",
+      "Stocks have a higher average final balance and higher standard deviation",
+      "The 50/50 mixed account is between stock and bond accounts in mean and standard deviation"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 1178180,
+        "endMs": 1201730,
+        "text": "The different types of accounts will tend to have different performance characteristics. Stocks will tend to fluctuate a lot in price, but they tend to do best on average. Bonds don't do as well as stocks on average, but the drops as well as the gains will tend to be smaller. Money in cash, like savings accounts, will tend to fluctuate the least, but it'll have the worst average performance."
+      },
+      {
+        "startMs": 1309590,
+        "endMs": 1332020,
+        "text": "A more common approach will be to split the savings into two groups, such as half in a stock account and half in a bond account. We can easily modify our code to see what that would look like. Here, we've created a 3rd type of account, which we'll call the mixed account. We'll keep track of two balances in each iteration, the mixed balance for stocks and the mixed balance for bonds."
+      },
+      {
+        "startMs": 1364380,
+        "endMs": 1395910,
+        "text": "Each year we'll do that rebalancing. One other change, rather than computing the two groups totally independently, we'll pick a year at random and we'll use the stock and bond data from that same year. Stock and bond performance can be related to each other, so we want to make sure that we use comparable data for each. So that means that we pick one of 35 years and we pick the stock and the bond data for that year. Again, running the code will show us a plot and the statistics we calculate."
+      },
+      {
+        "startMs": 1280110,
+        "endMs": 1309210,
+        "text": "Now if we run the code, we'll see a plot showing both stock performance and bond performance. We can see in the histogram that the bonds have a much narrower range of outcomes than the stocks. And if we look at the statistics that we printed out, we'll see that indeed our stock funds have a higher average final balance but also have a significantly higher standard deviation. Now, often people will not have all their money in one kind of account, like all in stocks or all in bonds."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "matplotlib-sims-unanswerable-001",
+    "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+    "question": "Which Python GUI framework does the instructor recommend for building desktop windows in this course?",
+    "category": "unanswerable",
+    "answerable": false,
+    "referenceAnswer": null,
+    "requiredFacts": [],
+    "goldEvidence": [],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "monte-carlo-paraphrase-001",
+    "videoId": "ef4b25b9-6d3b-4039-963a-e1f562b3cece",
+    "question": "What does a larger standard deviation of final balances tell us about an investment, in the instructor's words?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "It means the investment's outcomes are more volatile — the results are more spread out.",
+    "requiredFacts": [
+      "Standard deviation measures how spread out the results are",
+      "The larger the standard deviation, the more volatile the investment"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 1145630,
+        "endMs": 1177080,
+        "text": "It has functions such as mean and STDV for standard deviation to calculate the overall mean and standard deviation of a list. The larger the standard deviation, the more volatile our investment is. So, we can modify our code to import the statistics module, and then at the end of the program, we print out the average and the standard deviation from all of our runs. If we run this code, we see that we get a pretty high balance, and we also get a pretty big standard deviation."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "xml-json-direct-002",
+    "videoId": "8683399c-1504-4457-8f21-f951a71f33e5",
+    "question": "What are the two key rules the instructor mentions on what you can store inside a JSON structure?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "Every key must be a quoted string, and you can only use values like numbers, booleans, strings, or arrays — you cannot store functions.",
+    "requiredFacts": [
+      "Each JSON key must be a string wrapped in quotes",
+      "You can use numbers, booleans, strings, and arrays as values",
+      "Functions cannot be stored in JSON"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 239580,
+        "endMs": 270150,
+        "text": "First of all, every key in jason must be a string with quotes. We use colons instead of an object. We also can use arrays. We can have values like numbers, booleans, strings, but we cannot store more complicated things like functions as an example. So the bad news is that it's not actually JavaScript. The good news is that it's very close, which makes it a great fit if we are using JavaScript because we can translate between JSON and JavaScript very, very easily."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "xml-json-paraphrase-001",
+    "videoId": "8683399c-1504-4457-8f21-f951a71f33e5",
+    "question": "Why can JSON be consumed by applications written in languages other than JavaScript?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "JSON is a language-neutral data format — any program can parse it and turn it into its own native objects, not just JavaScript.",
+    "requiredFacts": [
+      "JSON is not specific to JavaScript",
+      "It can be parsed and turned into native objects by any language",
+      "Examples given include Python and Ruby applications"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 365510,
+        "endMs": 388470,
+        "text": "That doesn't mean you can only use it with JavaScript. So these APIs we see will respond with JSON like the Star Wars API I just briefly showed you. It sends you JSON when you send a request to it. But you can write a Python application that communicates with that API, receives JSON, and turns it into valid Python. You could do, you know, any, you could do a Ruby application and do the same thing."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "xml-json-multi_evidence-001",
+    "videoId": "8683399c-1504-4457-8f21-f951a71f33e5",
+    "question": "Why has JSON mostly replaced XML for exchanging data, and what is one concrete difference the instructor shows between valid JSON and JavaScript?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "JSON is now the common format most people use for sending data (XML used to be the norm), and unlike JavaScript a JSON object's keys must always be quoted strings, so an unquoted key or a value with single quotes is not valid JSON.",
+    "requiredFacts": [
+      "JSON is a format for sending data",
+      "XML used to be very common",
+      "Nowadays most people use JSON",
+      "Every JSON key must be a quoted string",
+      "Single quotes are not valid in JSON strings"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 334830,
+        "endMs": 365330,
+        "text": "And Actually, that's pretty much it. If we had more complex data, like if we had a function from JavaScript we're trying to turn into JSON, that becomes problematic, but there are ways around it. So to sum all of this up, JSON is a format for sending data. So is XML. XML used to be very common. Hence the term Ajax with an X. Nowadays, most people use JSON, and even though it's called JavaScript Object notation, it's named that because it's very similar to JavaScript."
+      },
+      {
+        "startMs": 419680,
+        "endMs": 451060,
+        "text": "Is the string of Thomas. And then let's just start with that. Let's process that. Invalid. It tells me immediately strings should be wrapped in double quotes. OK, so I use single quotes here that should be double, and this has no quotes, which is valid in JavaScript, not valid in JSON. If I try something like um hello or greets. Which should be a function. It doesn't even do anything. It's just a function."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "reduce-js-direct-001",
+    "videoId": "8c05dc02-d2de-4e8d-bfff-9833470fa2bd",
+    "question": "In a reduce callback, what do the first and second parameters represent?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "The first parameter is the accumulator/total that holds the running value (the previous return value), and the second parameter is the current value being processed in the array.",
+    "requiredFacts": [
+      "First parameter is the accumulator that holds the running result",
+      "It carries the previous return value each time",
+      "Second parameter is the current value being processed"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 263519,
+        "endMs": 292200,
+        "text": "So again, think of it this way, we're taking a bunch of values and we're reducing them down to a single value, and the function that we pass in has to follow this format where the first thing is a total or the accumulator or just the place, the value that you are reducing, and it will hold a value each time that changes or it can change. So every time this function runs, it's past the previous return value of the function. And then current value is whichever value we're working on."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "reduce-js-multi_evidence-001",
+    "videoId": "8c05dc02-d2de-4e8d-bfff-9833470fa2bd",
+    "question": "Starting from the first element 3, how does reduce sum the array 3, 5, 7, 9, 11 to a final total of 35?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "reduce seeds the accumulator with the first element, 3; then it adds 3 to 5 to get 8, 8 to 7 to get 15, 15 to 9 to get 24, and finally 24 to 11 to return 35.",
+    "requiredFacts": [
+      "The accumulator starts at the first element, 3",
+      "First return: 3 + 5 = 8",
+      "Second return: 8 + 7 = 15",
+      "Third return: 15 + 9 = 24",
+      "Final return: 24 + 11 = 35"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 171860,
+        "endMs": 204559,
+        "text": "If we take a look at this table, I think it helps explain how it works. The accumulator variable is going to start as the first element in the array. And current value starts as the next element. And if you look at what we're returning accumulator plus current value, so take the current total, which is initialized to the first element, 3, add it to the next value 5, current value that gives us 8. So we return 8. That is then used as accumulator in the next iteration."
+      },
+      {
+        "startMs": 204899,
+        "endMs": 241169,
+        "text": "So accumulator now remembers the last time, the last sum, which was 8. So now accumulator is 8 and current value is the next element, 7. So we add them together and return that which is 15, and now reduce runs again, or the callback rather runs again. Accumulator is now 15. It remembers the value from last time, the sum or the total, and current value is 9. So we add 15 and 9. That's what I'm reducing or how I'm reducing. We get 24. It goes one more time. Accumulator is 24 on the fourth call."
+      },
+      {
+        "startMs": 241809,
+        "endMs": 262688,
+        "text": "It holds the sum of all of these elements before it, and now current value is the last element 11. So we return the sum of 24 and 11, which gives us 35, and we've hit the end, so reduce returns 35. That is the total accumulated value. So we end up with 35 as the return value."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "reduce-maxmin-exact_term-001",
+    "videoId": "c5b0f316-a73e-410c-90e4-462ad7174a20",
+    "question": "What is the term for the optional second argument you can pass to reduce immediately after the callback?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "an initial value",
+    "requiredFacts": [
+      "reduce's callback can be followed by an initial value",
+      "It is passed as the second argument, after the callback"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 352109,
+        "endMs": 387029,
+        "text": "When you use reduce, you can actually pass in an initial starting value. So, after your callback, the format would be something.re reduce. So we'll do array.reduce, you pass in your callback. And then initial value. Now, this callback is usually an inline anonymous function, so it ends up being kind of long, but at the end, after your function, you can add a comma, and then an initial value. So if we write a simple reducer function, let's just go back to, to adding numbers together."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "reduce-maxmin-direct-001",
+    "videoId": "c5b0f316-a73e-410c-90e4-462ad7174a20",
+    "question": "When summing 10, 20, 30, 40, 50 with reduce, what total do you get if you start the accumulator at 0 versus 1000?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "Starting at 0 gives 150; starting at 1000 gives 1150, because reduce adds 10+20+30+40+50 = 150 onto whatever initial value you supplied.",
+    "requiredFacts": [
+      "Without an initial value, reduce uses the first element",
+      "Passing 0 as the initial value yields 150",
+      "Passing 1000 as the initial value yields 1150"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 426209,
+        "endMs": 453350,
+        "text": "When we don't specify an initial value, it will just use the first element, which we saw a couple of slides ago here, nope, here, where the accumulator starts as 3, that's the first element, and the current value starts at 5. But you can initialize with a custom value, so I can say, I want some to start at 0, which is gonna give us the exact same result. We start with 0, then we add 10, then 20, then 30, then 40, then 50."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "reduce-maxmin-paraphrase-001",
+    "videoId": "c5b0f316-a73e-410c-90e4-462ad7174a20",
+    "question": "Besides keeping a running max or sum, what other kind of value can reduce accumulate into, that the instructor mentions at the end?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "reduce can accumulate into an object — for example, building up a data object rather than just a number.",
+    "requiredFacts": [
+      "reduce is not limited to numeric accumulation",
+      "You can specify an object as the initial value",
+      "The initial value does not have to be a number"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 488950,
+        "endMs": 516570,
+        "text": "We'll see that we can specify an object if we're trying to accumulate data into an object, and that's what we're going to see next up. So to wrap this up, we saw that you can use reduce not just to multiply or to sum things together, but also to keep track of the max or the min or some piece of data. It doesn't have to be max or min. It could be the, the longest string in an array, the highest rated book, whatever it is, as we iterate over each element in an array."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "would-have-exact_term-001",
+    "videoId": "e12a7b28-734e-40ca-a864-a9fb59779b65",
+    "question": "What single word does the instructor repeatedly call the 'magic word' that marks a present unreal conditional as referring to the past?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "have",
+    "requiredFacts": [
+      "'have' is the magic word that marks the past",
+      "\"I would buy it\" talks about now; \"I would have bought it\" talks about the past"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 175870,
+        "endMs": 222750,
+        "text": "So have is the magic word. And in my experience, the number one problem of when people start to use these conditionals, they forget the word have and it's confusing for the other person. If you don't have the word have and you say I would buy it, I understand you are speaking about now. If you say I would have bought it, I go, ah, OK, it's a past moment before not talking about now, very important. What's the magic word? Have. So now as I would do it past, I would have done it, right?"
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "would-have-direct-001",
+    "videoId": "e12a7b28-734e-40ca-a864-a9fb59779b65",
+    "question": "What is the basic grammatical shape the instructor gives for a past unreal condition and its result?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "The result uses 'would have' + past participle, and the if-clause uses 'had' + past participle (e.g., \"I would have bought it if it had not been so expensive\").",
+    "requiredFacts": [
+      "Result clause uses would have + past participle",
+      "If-clause uses had + past participle",
+      "Example: would have bought it if it had not been so expensive"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 265900,
+        "endMs": 308900,
+        "text": "Past is did, saw, bought, and tried, and past participle is done, seen, bought, tried, because after the have you must have the past participle, not the verb in the present, but the past participle. So looking at the form, all the ingredients or little pieces of the sentence, we start with I u we they he she. Wood Have Now it's past participle. Now here is only examples. You can have whatever verb you want. I would have done it. I would have seen him, etc."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "would-have-paraphrase-001",
+    "videoId": "e12a7b28-734e-40ca-a864-a9fb59779b65",
+    "question": "Why is inserting 'have' the key to signaling an unreal past situation rather than a present one?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "Adding 'have' after 'would' (and 'had' in the if-clause) moves both the condition and the result into a past time that can no longer be changed, e.g. 'If I had not left the house late, I would have arrived on time.'",
+    "requiredFacts": [
+      "'have' moves the statement from present to past",
+      "The past is presented as unchangeable",
+      "Example ties the unreal past condition to a consequence"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 175870,
+        "endMs": 222750,
+        "text": "So have is the magic word. And in my experience, the number one problem of when people start to use these conditionals, they forget the word have and it's confusing for the other person. If you don't have the word have and you say I would buy it, I understand you are speaking about now. If you say I would have bought it, I go, ah, OK, it's a past moment before not talking about now, very important. What's the magic word? Have. So now as I would do it past, I would have done it, right?"
+      },
+      {
+        "startMs": 389150,
+        "endMs": 440020,
+        "text": "I cannot change the past, but I can imagine different ideas. Now if I imagine different ideas. So past the past, we cannot change it, but we can talk about different possibilities. And if I had not left the house late, I would have arrived on time. So the previous idea was I left the house late. And I was late for work. If I had not left the house late, so had not as negative. But it's true, I left the house late and I would have arrived on time, but I didn't arrive on time."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "would-have-multi_evidence-001",
+    "videoId": "e12a7b28-734e-40ca-a864-a9fb59779b65",
+    "question": "What are the three components of the full conditional form the instructor writes out, and which verb's past participle completes the 'had' clause?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "The form is I/we/they/he she + would have + past participle, and the past participle completes the 'had' part (had + past participle); the instructor gives 'I would have bought it' as the example.",
+    "requiredFacts": [
+      "The form starts with would have",
+      "It includes had + past participle in the if-clause",
+      "'I would have bought it' is the worked example"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 265900,
+        "endMs": 308900,
+        "text": "Past is did, saw, bought, and tried, and past participle is done, seen, bought, tried, because after the have you must have the past participle, not the verb in the present, but the past participle. So looking at the form, all the ingredients or little pieces of the sentence, we start with I u we they he she. Wood Have Now it's past participle. Now here is only examples. You can have whatever verb you want. I would have done it. I would have seen him, etc."
+      },
+      {
+        "startMs": 309160,
+        "endMs": 341760,
+        "text": "and the little word if that makes everything happen here. A rada da had and past participle. These are all the elements, all the ingredients for this kind of conditional. Now we call this the third conditional, but don't worry too much about names or whatever. Just get the idea and get the concept first. Now this is the form, but. We can easily have in a different order."
+      },
+      {
+        "startMs": 125150,
+        "endMs": 175650,
+        "text": "So it is very expensive and I'm not going to buy it. So it's what happens if something else happens. This sentence, I would buy it if it wasn't expensive, is talking about now, but. If we want to make this idea about the past, the magic word is have. I would have bought it if it had not been so expensive. All right. So what's the magic word? Have this is the magic word we use in a sentence to make because we had the previous sentence here I would buy it. And then after I would have bought it."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "decimals-direct-001",
+    "videoId": "02ad6b79-b765-4293-bb0a-e8771da641a8",
+    "question": "Why is Papa Bear mistaken that the longest decimal number always means the largest amount?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "Because decimal size is decided by the column values, not the digit count — Baby Bear had the shortest number but the largest amount of porridge.",
+    "requiredFacts": [
+      "The bears assumed the longest number was the largest",
+      "The shortest number actually represented the largest amount",
+      "Decimal size depends on column value, not digit count"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 256540,
+        "endMs": 281799,
+        "text": "That seemed reasonable until one day the three bears discovered a new shopping mall called the Decimal where everything was measured in decimals. Papa Bear naturally pointed to the box of porridge which had the longest number, and Mamma Bear pointed to the box of porridge which had a medium length number, and Baby Bear pointed to the box of porridge which had the shortest number. But when they got home and opened the boxes, they were in for a big surprise."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "decimals-paraphrase-001",
+    "videoId": "02ad6b79-b765-4293-bb0a-e8771da641a8",
+    "question": "How does the instructor define a carat when talking about weighing gemstones?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "A carat is a measure of weight (used in gems) equal to 1/5 of a gram, or 200 mg, and a gem's value is determined by its weight.",
+    "requiredFacts": [
+      "A carat is a measure of weight",
+      "One carat equals 1/5 of a gram or 200 mg",
+      "The value of a stone is determined by its weight"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 589650,
+        "endMs": 646349,
+        "text": "And so it's very important to know where the decimal point goes when you are putting it down on paper. Uh, for example, we take a small amethyst. And we weigh it, and the scale tells me that it weighs 2500 of a carat. We take a larger one. And now the scale tells me that it weighs 24/10 of a carat. A carrot is, as we use it in gems, is a measure of weight. A carrot is 1/5 of a gram or 200 mg. We moved to, uh, a very lovely green garnet. And this one weighs 9/10 of a carat."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "decimals-multi_evidence-001",
+    "videoId": "02ad6b79-b765-4293-bb0a-e8771da641a8",
+    "question": "When comparing decimals, what columns do you check in order, and how did Amy win 100ths even though her whole minutes matched everyone else?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "Compare column by column starting with the 10ths, then the 100s, then the 1,000s; Amy's 200 in the 100s column was smaller than the 500 in the other runner's score, which made her faster.",
+    "requiredFacts": [
+      "Compare from the 10ths column",
+      "Then the 100s column",
+      "Then the 1,000s column",
+      "Amy's 200 in the 100s was less than 500"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 178169,
+        "endMs": 217270,
+        "text": "When you're comparing decimals, you begin with the 10ths column, the one just to the right of the decimal point. We don't have to worry about the whole numbers here because they're the same. OK, the 10, both digits in this column are the same, 4 10th. So we'll move on to the 100s. Ah, here's the difference. Amy's 200 is less than the 500 in the other score. When you're comparing decimals, you do it column by column from 10ths. 200s, 2,000s."
+      },
+      {
+        "startMs": 218460,
+        "endMs": 255850,
+        "text": "As soon as you reach digits that are different, you can stop. Like the scores here we moved from the tents, which are the same. To 100s where the difference is clear. Once upon a time, there were 3 bears, Papa Bear, who was very big, Mama Bear, who was medium sized, and Baby Bear, who was very small indeed. Uh, being bears, they didn't know much about mathematics. All they knew was that the longer the number, the bigger it was."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "node-vs-browser-exact_term-001",
+    "videoId": "a4d233ff-cd7c-429f-b7ad-c81dcba0e068",
+    "question": "What does the instructor say you lose when you run JavaScript with Node instead of in a browser?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "Access to the DOM (the browser's HTML objects and the related Window global).",
+    "requiredFacts": [
+      "In the browser you get access to the DOM",
+      "In Node there is no DOM",
+      "Node does not manipulate HTML/DOM"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 63400,
+        "endMs": 86840,
+        "text": "When we run JavaScript in the browser, we get access to the DOM, so that's all of our typical HTML stuff that we've discussed, and we get access to a lot of related objects to that, such as the Window object. It's a global object that has a lot of helpful methods on it. When we run JavaScript with Node, however, there is no DOM. So when we use Node, we're not trying to manipulate a DOM, we're not messing around with HTML or anything like that."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "node-vs-browser-unanswerable-001",
+    "videoId": "a4d233ff-cd7c-429f-b7ad-c81dcba0e068",
+    "question": "What npm command does the instructor recommend for listing a package's available versions?",
+    "category": "unanswerable",
+    "answerable": false,
+    "referenceAnswer": null,
+    "requiredFacts": [],
+    "goldEvidence": [],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "font-awesome-exact_term-001",
+    "videoId": "fe839af5-745c-427f-a787-8540d731cb03",
+    "question": "What is the name of the free icon library the instructor uses to display the play and pause icons?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "Font Awesome",
+    "requiredFacts": [
+      "Font Awesome is a free icon library",
+      "It provides icons shown via <i> tags"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 1540,
+        "endMs": 26130,
+        "text": "Now that our timer is working pretty well, we need to apply a little bit of styling just to make sure that everything shows up inside the actual timer. The first thing I want to do is replace the start and pause buttons with the icons for like pause and or start and pause right there. So to show those icons, we're going to use a free icon library called Font Awesome. I'm going to open up a new browser tab and navigate to fontawesome.com."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "font-awesome-paraphrase-001",
+    "videoId": "fe839af5-745c-427f-a787-8540d731cb03",
+    "question": "How does the instructor wire the icon library into the project and apply an icon inside a button?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "Copy the library's link from cdnjs.com into a <link rel='stylesheet' href=...> tag in the page head, then paste the <i>...</i> snippet (the eye tag) into the button in place of the text.",
+    "requiredFacts": [
+      "Get the link from cdnjs.com",
+      "Add a link tag with rel stylesheet and the href",
+      "The source is a CSS file",
+      "Replace the button text with the <i> snippet from the documentation"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 28510,
+        "endMs": 58720,
+        "text": "So this is a free resource that we can use to show tons of different icons inside our application. The first thing we have to do is wire up this library to our app. To do so, we're going to open up one other page. I'm going to go to cdnjs.com. Once here we can search for font. Awesome. And we'll see a link right here. So notice that this is a CSS file. That's how we make use of Font awesome inside of our project. We're going to hook it up as a CSS file. So I'm going to copy that link."
+      },
+      {
+        "startMs": 142590,
+        "endMs": 174910,
+        "text": "So that's the HTML that we're going to show in order to show that icon. So I'll click that thing to copy it. I'll go back over to my HTML document. I'm going to find my button that says start. I'll delete the text that says start and replace it with that I tag. So I can save this, go back over to my browser, refresh, and I'll see the play button right there. OK. So that's definitely good, so we could definitely repeat the same process to get the pause icon as well. So I'll search for pause."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "js-ecmascript-exact_term-001",
+    "videoId": "c1947c90-3404-4dec-b750-6f71312c4cec",
+    "question": "What is the name of the annual committee that decides which new features are added to the JavaScript specification?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "TC 39",
+    "requiredFacts": [
+      "TC 39 is a committee at the ECMA organization",
+      "It decides which new features are added to the spec each year"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 170009,
+        "endMs": 193375,
+        "text": "It gets kind of technical here. There's a committee called TC 39 at this ECMA organization. They're the ones who are in charge. Of evolving and maintaining this massive document that describes how ECMScript should work. And every year, different delegates on this committee meet up, they listen to presentations, they debate to figure out which new features should be added to this specification."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "js-ecmascript-paraphrase-001",
+    "videoId": "c1947c90-3404-4dec-b750-6f71312c4cec",
+    "question": "How did the way JavaScript standard updates were named and released change after ES6 came out?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "Before ES6, new features arrived in big versioned batches (like ES5 and ES6) over many years; after ES6 the committee switched to releasing a new spec every year, named by year — ES 2015 (which equals ES6), ES 2016, and so on.",
+    "requiredFacts": [
+      "Previously features came in numbered version batches (ES5, ES6)",
+      "After ES6 updates became annual",
+      "Naming switched to the year (ES 2015, ES 2016...)",
+      "ES 2015 is the same as ES6"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 222050,
+        "endMs": 249070,
+        "text": "There were batches of updates or batches of new features that were added to the spec, and they had names like ES5. There was actually no ES4, it was canceled, uh, but there were these, these groups of new features that were added, and it took forever, like a bunch of years in between these updates to the spec. And after ES6 was released, which took about 6 years. The committee decided to change things up and just annually update the spec."
+      },
+      {
+        "startMs": 249449,
+        "endMs": 280730,
+        "text": "So, naming started to go by ES for ECM script, and then instead of a version number like 45 or 6, it's now a year. So ES 2015, ES 2016, ES 2017. So, all of these terms over here on the left are referring to, well, except for JavaScript, they're all referring to this specification document. ES 6 is the same as ES 2015, and it all boils down to this one document that we saw and text being added in to describe how a feature should work."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "js-ecmascript-unanswerable-001",
+    "videoId": "c1947c90-3404-4dec-b750-6f71312c4cec",
+    "question": "What is the exact date the ECMAScript 2015 specification was published?",
+    "category": "unanswerable",
+    "answerable": false,
+    "referenceAnswer": null,
+    "requiredFacts": [],
+    "goldEvidence": [],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "going-to-ghana-exact_term-001",
+    "videoId": "65e733e0-5f7f-432a-a94c-7c8d5bcda3c8",
+    "question": "When 'go' is used to talk about moving toward a place, which little word does the instructor say is the essential first part?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "to",
+    "requiredFacts": [
+      "First part of 'go' when going to a place is the word 'to'",
+      "'to' is a preposition of movement",
+      "Examples: go to work, go to school, go to the city center"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 4780,
+        "endMs": 45460,
+        "text": "Welcome back students. Welcome to module 3 of your course, going to Ghana. This first video, I want to give you an introduction. I want to show you the verb go, the little possible mistakes, and going to Ghana, how to avoid all mistakes with going and gonna. Just a quick introduction. Let's go. First part of the verb go is the word to. Now, 2, as a preposition, it's usually about movement to go, to, to arrive, to, to walk to things that are moving and in movement."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "going-to-ghana-direct-001",
+    "videoId": "65e733e0-5f7f-432a-a94c-7c8d5bcda3c8",
+    "question": "What two words are the exceptions where you drop 'to' after 'go', and what is the correct form for each?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "home and there — you say 'I'm going home' and 'I'm going there', never 'to go to home' or 'to go to there'.",
+    "requiredFacts": [
+      "You cannot say 'to go to home'",
+      "You cannot say 'to go to there'",
+      "'I'm going home' is correct",
+      "'I'm going there' is correct"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 45960,
+        "endMs": 85450,
+        "text": "Go is about moving, so it's to go to. It's the first important part about the verb go. So to go to a party, to go to Italy, be careful, it's not for. Some languages, the word for and to, it's the same, but in this case it's never to go for, to go for Italy, it's to go to when talking about a place. This is the rule. Two little exceptions, two very basic exceptions. One is home, where you live, your house, and the word there, come on, different place."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "going-to-ghana-paraphrase-001",
+    "videoId": "65e733e0-5f7f-432a-a94c-7c8d5bcda3c8",
+    "question": "How does the instructor explain the informal word 'gonna' in terms of the words it contains?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "'gonna' is the spoken contraction of 'going to' + a verb; it's used before a verb (like 'do it'), never before a place, and it's for speaking, not writing.",
+    "requiredFacts": [
+      "'gonna' comes from 'going to' and a verb",
+      "Use it before a verb, not a place",
+      "It is for speaking, not writing"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 260550,
+        "endMs": 304610,
+        "text": "So listen and repeat, I'm gonna, I'm gonna, we're gonna practice this a lot in this module because I'm gonna. Because here you can see at the start I'm going to do it. Good. Going to contraction to I'm gonna do it, but careful here. I'm gonna to do it um um um um no or I'm gonna to doing it, no. Only I'm going to do it or I'm gonna do it. So I'm gonna do it is for speaking, never for writing. So this is the idea, gonna is going and to and the verb."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "going-to-ghana-unanswerable-001",
+    "videoId": "65e733e0-5f7f-432a-a94c-7c8d5bcda3c8",
+    "question": "What is the GDP of Ghana in US dollars?",
+    "category": "unanswerable",
+    "answerable": false,
+    "referenceAnswer": null,
+    "requiredFacts": [],
+    "goldEvidence": [],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "pip-install-exact_term-001",
+    "videoId": "94661b1f-026a-477e-a56b-5234dd5595bb",
+    "question": "What is the name of the tool the instructor uses to install third-party Python packages?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "pip",
+    "requiredFacts": [
+      "pip installs third-party packages using Python",
+      "Installed via 'pip install <name>'"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 939,
+        "endMs": 28979,
+        "text": "Let's take a look at how you can install PIP. So, first of all, what is PIP? PIP is a package, uh, yeah, I guess it's considered a package, but PIP basically lets you install third-party packages using Python. So if you've ever used JavaScript, you might have used NPM. In PHP it's called Composer, I believe. Compose Composer. I think it's Composer, it's been a little while. And in Python, we call it PIP. And so how it works is we can say PI, install."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "pip-install-direct-001",
+    "videoId": "94661b1f-026a-477e-a56b-5234dd5595bb",
+    "question": "What command does the instructor run to confirm pip is installed and show its version?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "pip -V",
+    "requiredFacts": [
+      "pip -V prints pip's version",
+      "It also shows where pip is being used"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 30719,
+        "endMs": 58409,
+        "text": "Package name and this makes it available on our computer for us, so we can now use other people's code on our computer. Now, if you don't have, for example, requests installed, You can simply do PI install requests. Now, let's check to see if you actually have PIP installed first. Let's do PI-V in our terminal. And I have PIP installed. If you don't have this, if this gives you some sort of error, like command not found kind of error, we're going to need to install PIP."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "pip-install-paraphrase-001",
+    "videoId": "94661b1f-026a-477e-a56b-5234dd5595bb",
+    "question": "If Python didn't come with pip, what steps does the instructor walk through to get it onto your machine?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "Download the get-pip.py installer with curl from the bootstrap URL, then run 'python get-pip.py' to install pip.",
+    "requiredFacts": [
+      "Fetch get-pip.py with curl",
+      "Run 'python get-pip.py' to install",
+      "The URL is bootstrap.pypa.io/get-pip.py"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 89410,
+        "endMs": 135960,
+        "text": "On our terminal HTTPS colon slash bootstrap. PYPA Python packages.io/get-Pip.p. Than we do Dash 0, and we're gonna call it get. Pip. P. Now let's see if I have any typos in here. Do do do do do, downloading the file, and if I do LSLA. Or if you're on Windows, you can write DIR. And do we have get PIP? We have a function here called get PI. Great, that's what we want. So now once you have that file, all you have to do is type Python get pip.pi."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "requests-http-exact_term-001",
+    "videoId": "801bdbd6-884f-4a63-9a7b-cf2ab9740fea",
+    "question": "Which Python package does the instructor import to make a web request?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "requests",
+    "requiredFacts": [
+      "The requests package is used for requests",
+      "Imported with 'import requests'"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 289,
+        "endMs": 31690,
+        "text": "Let's go ahead and make a simple API request. All right, in this lesson, we are going to need to use a package called requests. So, first of all, let's try this out. Let's type Python to get into our shell, P Y T H O N, if I can spell that, and then we can just type import requests. And if you don't see any errors, then you are good to go. We can proceed, we can use requests. Uh if you see an error, something like this, import requests to."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "requests-http-direct-001",
+    "videoId": "801bdbd6-884f-4a63-9a7b-cf2ab9740fea",
+    "question": "What does an HTTP status code of 200 tell us about a website?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "The site is up and running.",
+    "requiredFacts": [
+      "200 is an HTTP status code",
+      "A 200 response means the site is up and running"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 117860,
+        "endMs": 158800,
+        "text": "Now, a 200 status in HTTP codes means the site is up and running. Now, at this point, you can make a site monitoring program quite easily. We could do something like this. Let's go ahead. Comment that out, and we can do import requests. Import time Wild, true REQ is equal to requests.get, and then your website, so HTTPs. Courses. coding for every. Buddy Dot com Print wreck. status code."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "requests-http-paraphrase-001",
+    "videoId": "801bdbd6-884f-4a63-9a7b-cf2ab9740fea",
+    "question": "How does the instructor turn a one-off request into a continuous uptime monitor?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "Loop forever, sleeping about 60 seconds between requests, and if the status code is not 200, trigger an email or text alert; stop it later with control C.",
+    "requiredFacts": [
+      "Wait roughly 60 seconds between requests",
+      "Alert (email/text) when status code != 200",
+      "Stop with control C"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 192649,
+        "endMs": 227949,
+        "text": "Instead, what we want to do is make one request and maybe wait for like 60 seconds. And so we could do time.sleep. 60 seconds And so once a minute, this is going to make a request, but just as an example, let's lower that down to like 3 seconds and let's run this again and see what happens. 200 200 Mhm, mhm, mhm. So we're gonna see that this is constantly pulling my sites to make sure that it's up all the time."
+      },
+      {
+        "startMs": 228429,
+        "endMs": 258989,
+        "text": "Basically, we just created an uptime program or an uptime monitoring program in like 7 lines of code with Python. And so to cancel, all I did there was control C. So I'm going to actually comment out this one, you can check out that source code if you like, and I'm going to uncomment the original one because that's all we really need to do. For this particular lesson, all we need to do is this, and this is a simple API request. In fact, actually this is hardly even an API request."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "array-callbacks-exact_term-001",
+    "videoId": "0ba7fe5a-525f-4d35-8874-d6b32a365290",
+    "question": "Which built-in array methods that take a callback does the instructor list in this lesson?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "map, filter, find, reduce, sum, and every",
+    "requiredFacts": [
+      "The methods are map, filter, find, reduce, sum, and every",
+      "Each takes a callback function"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 100160,
+        "endMs": 125730,
+        "text": "We want to talk about the built-in methods for arrays that require callbacks for each map, filter, find, reduce, sum, and every. And our game plan here is to cover a couple of the easier ones, then take a break to talk about a different function syntax we haven't seen yet called arrow functions. Arrow functions are a newish way of writing functions. They're just shorter, cleaner, easier when you need to pass a function in as an argument."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "array-callbacks-direct-001",
+    "videoId": "0ba7fe5a-525f-4d35-8874-d6b32a365290",
+    "question": "Why does the instructor say callbacks are central to JavaScript?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "Because many built-in JavaScript methods — especially array methods — expect you to pass them a callback function that they will call for you.",
+    "requiredFacts": [
+      "Callbacks are central to JavaScript",
+      "Tons of built-in methods expect a callback function"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 50,
+        "endMs": 19569,
+        "text": "In the last section, we talked a lot about passing functions as arguments to other functions with the expectation that the outer function will call your argument function, which we call a callback. And I said, I'm showing this to you because callbacks are central to JavaScript. In fact, tons of built-in methods expect you to pass a callback function."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "array-callbacks-paraphrase-001",
+    "videoId": "0ba7fe5a-525f-4d35-8874-d6b32a365290",
+    "question": "What benefit do arrow functions give when you need to pass a function into an array method?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "They are shorter, cleaner, and easier to write inline as arguments.",
+    "requiredFacts": [
+      "Arrow functions are shorter and cleaner",
+      "They are easier to pass in as an argument"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 100160,
+        "endMs": 125730,
+        "text": "We want to talk about the built-in methods for arrays that require callbacks for each map, filter, find, reduce, sum, and every. And our game plan here is to cover a couple of the easier ones, then take a break to talk about a different function syntax we haven't seen yet called arrow functions. Arrow functions are a newish way of writing functions. They're just shorter, cleaner, easier when you need to pass a function in as an argument."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "chrome-vscode-direct-001",
+    "videoId": "21050cf2-b0ab-402b-a195-e6eb14049634",
+    "question": "How do you get Chrome and why does the instructor recommend using the same browser he uses?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "Download it from google.com/Chrome; using the same browser the instructor uses makes it easier to follow along with the dev tools discussed later.",
+    "requiredFacts": [
+      "Download Chrome from google.com/Chrome",
+      "Using Chrome makes it easier to follow the dev tools"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 44830,
+        "endMs": 66360,
+        "text": "It's as simple as going to Google.com/Chrome and clicking download. It will just make for a better experience if we're on the same page. And as far as the editor that I'm using, I highly recommend VS code. Not just because I'm going to be using it in the course, and it will be easier for you to follow along, but also it is just my personal editor of choice these days."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "chrome-vscode-exact_term-001",
+    "videoId": "21050cf2-b0ab-402b-a195-e6eb14049634",
+    "question": "What is the full name of the code editor the instructor recommends?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "Visual Studio Code (VS Code)",
+    "requiredFacts": [
+      "VS Code stands for Visual Studio Code",
+      "It is free and developed by Microsoft"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 91889,
+        "endMs": 109970,
+        "text": "Um, I'm not gonna be doing anything all that specific to VS code. But if you're new and you're looking for an editor, this is the one I would go with. VS code stands for Visual Studio code. It's free, it's developed by Microsoft. Um, I can't say enough good things about it. Uh, I really can't."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "chrome-vscode-unanswerable-001",
+    "videoId": "21050cf2-b0ab-402b-a195-e6eb14049634",
+    "question": "Which version of VS Code introduced the built-in terminal?",
+    "category": "unanswerable",
+    "answerable": false,
+    "referenceAnswer": null,
+    "requiredFacts": [],
+    "goldEvidence": [],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "mdn-docs-exact_term-001",
+    "videoId": "0c790b52-9520-4feb-af33-1671b4a5061e",
+    "question": "What website does the instructor call the closest thing to official JavaScript documentation?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "MDN (Mozilla Developer Network), at developer.mozilla.org",
+    "requiredFacts": [
+      "MDN is the closest thing to official JavaScript docs",
+      "The address is developer.mozilla.org"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 170,
+        "endMs": 12850,
+        "text": "One more thing before we really get rolling here. I want to talk about a website called MDN Mozilla Developer Network. MDN is just about the closest thing to an official documentation for JavaScript that we have."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "mdn-docs-direct-001",
+    "videoId": "0c790b52-9520-4feb-af33-1671b4a5061e",
+    "question": "Why can JavaScript not have a single official documentation site the way Python has python.org?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "Because JavaScript is not a single downloadable product — it is the ECMAScript specification implemented separately by each browser, so no single vendor owns one canonical reference.",
+    "requiredFacts": [
+      "There is no single JavaScript to download",
+      "It is implemented by browsers from one spec",
+      "Unlike Python there is no unified official site"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 13380,
+        "endMs": 41389,
+        "text": "If you watch the video where I talked about ECMA and ECM scripts and different versions and new features and, and how there's not really an official JavaScript that we can just go download, that it's really an implementation of this ECMScript spec across different browsers, that's the same reason we don't have one official documentation. It's not like uh a language like Python, where you can go to python.com or python.org and see the docs for Python 2 or Python 3."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "mdn-docs-paraphrase-001",
+    "videoId": "0c790b52-9520-4feb-af33-1671b4a5061e",
+    "question": "How does the instructor combine Google with MDN when they can't remember a JavaScript method name?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "They type the concept into Google followed by 'MDN', so the search results come from the MDN documentation.",
+    "requiredFacts": [
+      "Type the concept into Google",
+      "Add 'MDN' to the search",
+      "Results come from MDN documentation"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 41709,
+        "endMs": 70220,
+        "text": "With JavaScript, things are a little murkier, but MDN is a really good resource. So, this is what it looks like, developer.mozilla.org. Uh, what I do, if I'm ever Googling something, and I'm, I'm trying to understand how a feature works in JavaScript or I can't remember, uh, the name of a particular method, I'll Google and add MDN at the end of my Google search, so I get these search results. So just as a, a quick example here, um, we go to references and guides."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "fractions-decimals-exact_term-001",
+    "videoId": "e4c82d42-c96a-41c9-aa61-2481e3538af0",
+    "question": "What does the instructor call a decimal that eventually ends in zeros, and what must a fraction's denominator be for it to convert into that kind?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "A terminating decimal; the fraction's denominator must be changeable into a power of 10.",
+    "requiredFacts": [
+      "A terminating decimal eventually ends in zeros",
+      "The fraction's denominator must be a power of 10",
+      "Then it is easy to convert into a decimal"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 478540,
+        "endMs": 508929,
+        "text": "What's wrong is that Did such a terrific job on the paints that I'm stuck with ordering even more stuff for the play. That's what's wrong. Well, you know how to change fractions into decimals now, so what's the problem? Well, I don't know how to do the hard ones, and I'm going bananas. Let's see. Lucky they're all fractions that'll become terminating decimals. What decimals? Terminating. They'll all work out, so their denominators are 10 or 100 or 1000 got the picture. OK, I'll read you write."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "fractions-decimals-exact_term-002",
+    "videoId": "e4c82d42-c96a-41c9-aa61-2481e3538af0",
+    "question": "When converting fractions to decimals, what kind of denominator does the instructor say makes the job easiest?",
+    "category": "exact_term",
+    "answerable": true,
+    "referenceAnswer": "A denominator that is a power of 10 (10, 100, 1000, ...).",
+    "requiredFacts": [
+      "Powers of 10 make conversion easiest",
+      "Multiply numerator and denominator to reach a power of 10",
+      "1/5 becomes 2/10"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 157800,
+        "endMs": 199690,
+        "text": "Patience, the first step is to see if we can make them all powers of 1010, 100, 1000, because then they'll be easier to change into decimals. Now 1/5 is 5 a factor of 10? Of course it is. 5 times 2 equals 10. Aha. So to keep the fraction equivalent we have to multiply both the numerator and the denominator by 2. Watch what happens. So the answer is 2/10, but the store's going to freak if I add 2/10 of a liter of paint, right? Well, the denominator is a power of 10."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "fractions-decimals-multi_evidence-001",
+    "videoId": "e4c82d42-c96a-41c9-aa61-2481e3538af0",
+    "question": "How does the instructor check the decimal for 3/4, and why can 1/3 never be written as that kind?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "For 3/4 she scales to 100 (3/4 = 75/100 = 0.75) and checks it on the calculator; 1/3 can never become a terminating decimal because no whole number multiplied by 3 gives a power of 10 as a denominator.",
+    "requiredFacts": [
+      "3/4 = 75/100 = 0.75, checked on the calculator",
+      "1/3 is a non-terminating decimal",
+      "No whole number times 3 equals a power of 10"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 512150,
+        "endMs": 594349,
+        "text": "3/4. 4 times what is a power of 10. It won't work. There's no whole number that you can multiply by 4 to make 10. So let's try 100. 4 times what is 100. Right, 4 times 25 is 100, so we'll multiply both the numerator and the denominator by 25. OK, let's check it on the calculator. Consider what the fraction 3/4 means 3. Divided by 4. So we'll divide 3 by 4 and get. 7,500s, neat. What's the next one? Hm, 2/8, 1/4. 4 times 25 equals 100, and 1 times 25 equals 25, 2500. OK. Let's do 1/3."
+      },
+      {
+        "startMs": 599650,
+        "endMs": 634760,
+        "text": "Wow, this decimal is a non-terminating decimal. What it's a perfectly good decimal, except that you can't write it with a denominator of 10 or 100 or 1000 or any power of 10. It'll never end with a 0. I still don't get it. Is there any whole number that you can multiply by 3 to get a denominator with the power of 10? You are right, I'm lucky that all my fractions can be made into terminating decimals. Well, I think Gina's got it."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "rectangle-area-direct-001",
+    "videoId": "ac116d4c-6436-4ffc-a979-3f09fa649bd5",
+    "question": "What formula does Shirley and Bobby's rival use to find the area of Mr. Freeman's 12-by-8 lawn?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "A equals L times W (length times width); for 12 by 8 that is 12 x 8 = 96 square meters.",
+    "requiredFacts": [
+      "The area formula is length times width",
+      "A equals L times W",
+      "12 times 8 gives 96 square meters"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 735869,
+        "endMs": 815859,
+        "text": "But of course you didn't need to use any books at all. What? Area equals the measure of length times the measure of width, or 12 times 8, which is 96 square meters, or A equals L times W. A equals L times W. That doesn't sound like a magic spell to me. It sounds more like a math formula. It doubles for It's both math and magic. 96 times. Um. Hey, where's your little rag, huh? Hey, you two punks don't think you're gonna beat me out of this job, do you? Insane. You get 96 m too. What? Mm"
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "rectangle-area-formula-paraphrase-001",
+    "videoId": "ac116d4c-6436-4ffc-a979-3f09fa649bd5",
+    "question": "Why does the instructor say you measure area in square units like square meters rather than just meters?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "Area covers a two-dimensional surface, so you measure how many unit squares it takes to cover it rather than just a one-dimensional length in meters.",
+    "requiredFacts": [
+      "Area is the amount of surface covered",
+      "You measure in square units",
+      "A square meter covers a surface, unlike a plain meter"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 190830,
+        "endMs": 227679,
+        "text": "What if you think about square and meter together, yeah. Say this is a square. OK, well, it's a little longer. Just say it's a square, same length on all four sides, but it's not. Pretend. OK, so what? Now say it's 1 m long on all four sides, but it's not. But if it were, wouldn't this be a square meter? You mean like That must be what our square meter is, but so what? Look, say the top of my drafting table is Mr. Freeman's law. Mr."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "rectangle-area-multi_evidence-001",
+    "videoId": "ac116d4c-6436-4ffc-a979-3f09fa649bd5",
+    "question": "How does Buddy Biggs calculate the lawn's area without laying out every square meter, and what result does he get?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "He counts the squares along one side (12) and the rows along the top (8) and multiplies them (12 x 8 = 96 square meters), using the length-times-width formula instead of physically covering the ground.",
+    "requiredFacts": [
+      "Count the squares along one side (12)",
+      "Count the rows along the top (8)",
+      "Multiply 12 by 8 to get 96 square meters",
+      "This uses the length-times-width formula"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 701330,
+        "endMs": 735619,
+        "text": "1 m. So what? So the wand was actually a 1 m stick and the books were square meters. Again, so. Well, then I watched you laying down all the books. You got to the end of one side and then you went along the top, and I realized that you could have stopped right there. All you had to do was count the number of squares along the side, 12, and the number of rows along the top. 8 rows of 12 squares is 12 multiplied by 8, which equals 96 square meters."
+      },
+      {
+        "startMs": 735869,
+        "endMs": 815859,
+        "text": "But of course you didn't need to use any books at all. What? Area equals the measure of length times the measure of width, or 12 times 8, which is 96 square meters, or A equals L times W. A equals L times W. That doesn't sound like a magic spell to me. It sounds more like a math formula. It doubles for It's both math and magic. 96 times. Um. Hey, where's your little rag, huh? Hey, you two punks don't think you're gonna beat me out of this job, do you? Insane. You get 96 m too. What? Mm"
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "rectangle-area-multi_evidence-002",
+    "videoId": "ac116d4c-6436-4ffc-a979-3f09fa649bd5",
+    "question": "How do Shirley and Bobby measure area by counting squares, including squares that are only partly covered?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "They cover the surface with unit squares and count the number of whole squares or parts of squares it takes to cover it, as shown when measuring along the lawn and adding rows.",
+    "requiredFacts": [
+      "You can count the number of squares that cover a surface",
+      "You can also count parts of squares",
+      "They measured one row then another row and added them"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 277779,
+        "endMs": 333839,
+        "text": "Oh no, he's got a pretty big lawn, yeah. Shirley and Bobby haven't figured out the formula for measuring the area of a rectangle yet, but they have figured out two vital clues. What a square meter is. And how square meters or square anything can cover a surface like your TV screen. You measure area in square units, and you can count the number of squares or parts of squares that it takes to cover a surface. Jeez, this is 5 times bigger than Mr. Freeman's lawn. Yeah, cross your fingers."
+      },
+      {
+        "startMs": 447950,
+        "endMs": 486899,
+        "text": "There. Are these square enough for you? Yeah. All he did was measure one row, then the other. He didn't even have a square meter clock, just a meter stick, but how'd that tell him square meters? He didn't measure anything in the middle. Maybe we could learn how to move faster. Nobody could move that fast. No, this was us. We measured one row, but there, there was more than 4 square meters in each row. Pretend, OK, I'm just trying to get the idea. OK. Then we added another row."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "rectangle-area-unanswerable-001",
+    "videoId": "ac116d4c-6436-4ffc-a979-3f09fa649bd5",
+    "question": "What is the total number of books in Mother Witch's library of magic spells?",
+    "category": "unanswerable",
+    "answerable": false,
+    "referenceAnswer": null,
+    "requiredFacts": [],
+    "goldEvidence": [],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "promises-js-direct-001",
+    "videoId": "fce685d4-7eed-42e2-93c7-a0e78d8efb37",
+    "question": "How does the instructor create a promise that resolves about half the time and rejects the other half?",
+    "category": "direct",
+    "answerable": true,
+    "referenceAnswer": "He sets const rand = Math.random(), then if rand < 0.5 he calls resolve(), otherwise he calls reject().",
+    "requiredFacts": [
+      "Use Math.random() to pick a random number",
+      "If rand is less than 0.5, call resolve",
+      "Otherwise call reject"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 432770,
+        "endMs": 467920,
+        "text": "We'll do constant rand equals math.random. And then if rand is less than 0.5, we will, let's do resolve. Else we will reject. So now this promise every time I refresh the page should be one of these states either immediately resolved or immediately rejected, depending on that random number. So this time it was resolved. I tried again, resolved. OK, now it was rejected. So this is the first part. This is how we create a promise."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "promises-js-paraphrase-001",
+    "videoId": "fce685d4-7eed-42e2-93c7-a0e78d8efb37",
+    "question": "How does the instructor explain what the then and catch methods on a promise do?",
+    "category": "paraphrase",
+    "answerable": true,
+    "referenceAnswer": "The then method runs its callback when the promise is resolved, and the catch method runs its callback when the promise is rejected.",
+    "requiredFacts": [
+      "Every promise has a then method",
+      "then runs if the promise is resolved",
+      "catch runs if the promise is rejected"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 468140,
+        "endMs": 506610,
+        "text": "The next and also extremely important part is how we actually interact with a promise. How do I run code if this promise was rejected versus run code if this promise was resolved? This is where we meet our friend.th. So every promise has a then method. So we could call we'll get you a dog then and this then method will run if our promise is resolved. So I have my dot then and I'll pass in a callback. This code will run when this promise is resolved and we'll console.log. Yay, we got a dog."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "promises-js-multi_evidence-001",
+    "videoId": "fce685d4-7eed-42e2-93c7-a0e78d8efb37",
+    "question": "What real-world analogy does the instructor use to explain what a JavaScript promise is, and what formal definition does he give?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "He compares it to his father promising a dog if he got good grades (an eventual, possibly-kept-or-broken guarantee), and defines a promise as a JavaScript object that represents the eventual success or failure of some task that takes time.",
+    "requiredFacts": [
+      "The dog-promise analogy: a promise of an eventual value that may or may not be fulfilled",
+      "A promise is an object representing eventual completion or failure",
+      "It represents a task that takes time, like an HTTP request"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 147080,
+        "endMs": 173940,
+        "text": "Think of a promise in the real world. Uh, when I was a kid, I really wanted a dog. I asked my dad, he said, you know, I promise we'll get you a dog if you get good grades. I got good grades and well, he didn't follow through on the promise until he had new kids and then he got them a dog. But other people's parents. would probably follow through on those promises and actually follow through and give them a dog, give the kids a dog. So a promise is different than saying, here is a dog right now."
+      },
+      {
+        "startMs": 174320,
+        "endMs": 202840,
+        "text": "It's just a uh a guarantee or a supposed guarantee of an eventual value for a dog or whatever we're talking about. So in JavaScript, promises are objects that represent an eventual either failure or success of some task that takes time. You make a request, uh, if we use a library like Axios, which we will shortly, that returns a promise because that value, if you're making an HTTP request, that can take time and that value may never come back."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "promises-js-multi_evidence-002",
+    "videoId": "fce685d4-7eed-42e2-93c7-a0e78d8efb37",
+    "question": "How does the instructor demonstrate that a resolved promise triggers then and a rejected promise triggers catch?",
+    "category": "multi_evidence",
+    "answerable": true,
+    "referenceAnswer": "He attaches a then callback (e.g. logging 'yay we got a dog') and a catch callback (e.g. logging a sad 'no dog'), then shows that each refresh runs only the matching callback depending on whether the promise resolved or rejected.",
+    "requiredFacts": [
+      "then callback runs when the promise resolves",
+      "catch callback runs when the promise rejects",
+      "He logs different messages for each case",
+      "Only the matching callback runs on each refresh"
+    ],
+    "goldEvidence": [
+      {
+        "startMs": 468140,
+        "endMs": 506610,
+        "text": "The next and also extremely important part is how we actually interact with a promise. How do I run code if this promise was rejected versus run code if this promise was resolved? This is where we meet our friend.th. So every promise has a then method. So we could call we'll get you a dog then and this then method will run if our promise is resolved. So I have my dot then and I'll pass in a callback. This code will run when this promise is resolved and we'll console.log. Yay, we got a dog."
+      },
+      {
+        "startMs": 509150,
+        "endMs": 542810,
+        "text": "So let's see if it works. OK, so it was rejected. This code did not run. Refresh again This time, if we take a look, it was resolved and our callback inside of dot then was executed. Tried again. Rejected. We don't see this code. There's no yeah we got a dog. So we have another method we can use with every single promise. We have dot then and another one called catch. Well, it's not called dot catch, it's called catch. And we could just chain it on like this."
+      }
+    ],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "promises-js-unanswerable-001",
+    "videoId": "fce685d4-7eed-42e2-93c7-a0e78d8efb37",
+    "question": "In what year was the Promises/A+ specification finalized?",
+    "category": "unanswerable",
+    "answerable": false,
+    "referenceAnswer": null,
+    "requiredFacts": [],
+    "goldEvidence": [],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  },
+  {
+    "id": "german-intro-unanswerable-001",
+    "videoId": "feb287e6-4f87-40bb-9af6-a3ee4d6479d0",
+    "question": "What is the role of the reduce array method in JavaScript?",
+    "category": "unanswerable",
+    "answerable": false,
+    "referenceAnswer": null,
+    "requiredFacts": [],
+    "goldEvidence": [],
+    "metadata": {
+      "notes": "AI-generated candidate from frozen ByteLearn transcript snapshot; requires manual gold review."
+    }
+  }
+]
