@@ -14,11 +14,7 @@ export function hitAtK(
   }
 
   if (
-    typeof k !== "number" ||
-    !Number.isFinite(k) ||
-    !Number.isInteger(k) ||
-    k <= 0
-  ) {
+    typeof k !== "number" || !Number.isFinite(k) || !Number.isInteger(k) || k <= 0) {
     throw new Error(
       `k must be a finite positive integer (got ${k}).`
     );
