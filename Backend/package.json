@@ -48,6 +48,7 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.20.0",
     "prisma": "^7.8.0",
-    "supermemory": "^4.17.0"
+    "supermemory": "^4.17.0",
+    "tsx": "^4.23.12"
   }
 }

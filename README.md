@@ -4,6 +4,38 @@ ByteLearn is a full-stack AI-enhanced learning platform built around video-first
 
 The project was designed to go beyond simple video hosting. The goal is to make learning sessions interactive, measurable, and adaptive to each student.
 
+## RAG Evaluation
+
+ByteLearn uses a frozen retrieval benchmark built from the source video
+transcripts. Gold evidence is represented as timestamp ranges rather than
+chunk IDs, making the benchmark resilient to future re-chunking.
+
+The current benchmark contains 61 questions across direct, paraphrase,
+exact-term, multi-evidence, and unanswerable categories. Positive retrieval
+metrics are evaluated over the 53 answerable questions.
+
+Retrieval relevance is determined using temporal IoU between retrieved and
+gold timestamp spans (`IoU >= 0.25`).
+
+### Dense Retrieval Baseline
+
+| Metric | Score |
+|---|---:|
+| Hit@5 | 94.34% |
+| Recall@5 | 91.19% |
+| Precision@5 | 27.92% |
+| MRR@5 | 0.7632 |
+| Timestamp Coverage@5 | 91.12% |
+
+The baseline uses the production dense retriever unchanged: Gemini embeddings,
+768-dimensional vectors, cosine similarity in pgvector, a similarity threshold
+of 0.3, and top-5 retrieval.
+
+The results show that dense retrieval usually finds the required evidence
+(50/53 Hit@5), but the retrieved context is relatively noisy. This baseline is
+frozen before introducing later retrieval improvements so changes can be
+measured against the same benchmark.
+
 ## Recruiter Snapshot
 
 ByteLearn is the kind of project that demonstrates product thinking, backend depth, and practical AI integration in one system.
