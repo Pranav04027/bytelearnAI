@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import axiosInstance from "../api/axios.js";
+import { formatMsToTimestamp } from "../utils/time.js";
 
-const VideoChatDrawer = ({ videoId, isOpen, onClose }) => {
+const VideoChatDrawer = ({ videoId, isOpen, onClose, onSeekToMs }) => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -87,6 +88,21 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose }) => {
               // ignore parse errors for partial chunks
             }
           } else if (eventType === "done") {
+            try {
+              const parsed = JSON.parse(eventData);
+              const doneSources = Array.isArray(parsed?.sources)
+                ? parsed.sources
+                : [];
+              if (doneSources.length > 0) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiMessageId ? { ...m, sources: doneSources } : m
+                  )
+                );
+              }
+            } catch (_) {
+              // ignore parse errors for partial chunks
+            }
             break;
           } else if (eventType === "error") {
             throw new Error("Stream error");
@@ -166,6 +182,33 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose }) => {
                   {msg.role === "ai" && !msg.content && isLoading && (
                     <span className="animate-pulse">...</span>
                   )}
+                  {msg.role === "ai" &&
+                    msg.sources &&
+                    msg.sources.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1">
+                          Sources
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {msg.sources.map((s) => (
+                            <button
+                              key={s.sourceId}
+                              type="button"
+                              onClick={() =>
+                                onSeekToMs && onSeekToMs(s.startMs)
+                              }
+                              title={`Jump to ${formatMsToTimestamp(
+                                s.startMs
+                              )}`}
+                              className="text-xs font-mono bg-gray-100 hover:bg-indigo-100 hover:text-indigo-700 text-gray-700 rounded px-2 py-0.5 transition-colors"
+                            >
+                              {formatMsToTimestamp(s.startMs)}–
+                              {formatMsToTimestamp(s.endMs)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                 </div>
               </div>
             ))

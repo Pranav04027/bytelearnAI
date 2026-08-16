@@ -155,18 +155,32 @@ const answerQuestionFromTranscript = async (req, res, next) => {
     );
 
     if (!matches || matches.length === 0) {
-      writeSseEvent(res, "token", {
-        text: "I couldn't find a relevant answer in this video's transcript. Try rephrasing the question.",
-      });
-      writeSseEvent(res, "done", {
-        answer:
-          "I couldn't find a relevant answer in this video's transcript. Try rephrasing the question.",
-      });
+      const noMatchAnswer =
+        "I couldn't find a relevant answer in this video's transcript. Try rephrasing the question.";
+      writeSseEvent(res, "token", { text: noMatchAnswer });
+      writeSseEvent(res, "done", { answer: noMatchAnswer, sources: [] });
       return res.end();
     }
 
+    // Build a stable source metadata array from the retrieved chunks.
+    // Rank-based sourceId (1-indexed) is used for citations so that the
+    // model never needs to see internal database IDs.
+    const sources = matches.map((match, index) => ({
+      sourceId: index + 1,
+      chunkIndex: match.chunkIndex,
+      startMs: match.startMs,
+      endMs: match.endMs,
+      similarity: match.similarity,
+    }));
+
+    // Assign stable source labels based on retrieval rank. Do not expose
+    // database IDs to the model.
     const contextText = matches
-      .map((match) => `[Chunk ${match.chunkIndex}] ${match.content}`)
+      .map((match, index) => {
+        const start = match.startMs != null ? match.startMs : "?";
+        const end = match.endMs != null ? match.endMs : "?";
+        return `[Source ${index + 1} | ${start}-${end}]\n${match.content}`;
+      })
       .join("\n\n");
 
     let memory = "";
@@ -185,7 +199,7 @@ const answerQuestionFromTranscript = async (req, res, next) => {
     );
 
     if (!clientClosed) {
-      writeSseEvent(res, "done", { answer });
+      writeSseEvent(res, "done", { answer, sources });
       res.end();
     }
 
@@ -221,7 +235,10 @@ Use the provided video transcript context to answer the student's question.
 
 Rules:
 - Speak directly to the student naturally. Do NOT say "Based on the transcript" or "The video discusses". Just answer the question directly and confidently!
-- Use only the provided context. If the answer isn't in the context, politely say you couldn't find it in this specific video.
+- Answer ONLY using the provided transcript context.
+- If the context does not support the answer, say that the answer could not be found in this video.
+- When making a factual claim that is supported by the transcript context, cite the appropriate source using exactly the format [Source 1], [Source 2], etc. (matching the source labels in the context).
+- Never invent a source number. Only cite sources that appear in the context.
 - Keep the answer concise, structured, and easy to read. Use formatting like numbered lists if explaining multiple points.
 - If there is relevant learner memory below, use it to tailor your explanation to their skill level, context, or weaknesses.
 

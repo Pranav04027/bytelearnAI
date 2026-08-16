@@ -66,3 +66,18 @@ export function ensureHMS(input) {
   if (!seconds) return '00:00:00';
   return formatSecondsToHMS(seconds);
 }
+
+// Format a millisecond timestamp into a compact, human-readable label.
+// Under one hour: MM:SS (e.g. 192000 -> "03:12")
+// One hour or more: H:MM:SS (e.g. 3661000 -> "1:01:01")
+export function formatMsToTimestamp(ms) {
+  const totalMs = Math.max(0, Number(ms) || 0);
+  const totalSec = Math.floor(totalMs / 1000);
+  const hh = Math.floor(totalSec / 3600);
+  const mm = Math.floor((totalSec % 3600) / 60);
+  const ss = totalSec % 60;
+  const M = String(mm).padStart(2, '0');
+  const S = String(ss).padStart(2, '0');
+  if (hh > 0) return `${hh}:${M}:${S}`;
+  return `${M}:${S}`;
+}

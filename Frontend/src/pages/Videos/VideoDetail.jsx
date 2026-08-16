@@ -344,6 +344,19 @@ const VideoDetail = () => {
     }
   };
 
+  // Seek the currently playing video to a given timestamp (in milliseconds).
+  // Used by the chat drawer's clickable source citations.
+  const handleSeekToMs = (ms) => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.currentTime = (Number(ms) || 0) / 1000;
+    try {
+      el.play();
+    } catch (_) {
+      // ignore play() rejection (e.g. autoplay policy)
+    }
+  };
+
   const onTotalCommentsChange = (total) => setCommentCount(total || 0);
 
   const onToggleLike = async () => {
@@ -830,6 +843,7 @@ const VideoDetail = () => {
         videoId={id}
         isOpen={isChatDrawerOpen}
         onClose={() => setIsChatDrawerOpen(false)}
+        onSeekToMs={handleSeekToMs}
       />
     </div>
   );
