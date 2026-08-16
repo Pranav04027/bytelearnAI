@@ -1,5 +1,5 @@
 import { prisma } from "../db/index.js";
-import { generatePrivateGetUrl } from "../utils/aws-s3.js";
+import { buildPublicS3Url } from "../utils/aws-s3.js";
 
 const getChannelStats = async (req, res, next) => {
   const userId = req.user.id;
@@ -94,7 +94,7 @@ const getChannelVideos = async (req, res, next) => {
     // Map `owner` to `ownerDetails` to match existing frontend expectations
     const formattedVideos = await Promise.all(
       channelVideos.map(async (video) => {
-        const playbackUrl = await generatePrivateGetUrl({ key: video.videos3Key, expiresIn: 3600 });
+        const playbackUrl = buildPublicS3Url(video.videos3Key);
         return {
           ...video,
           videofile: playbackUrl,

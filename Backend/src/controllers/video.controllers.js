@@ -1,7 +1,7 @@
 import { prisma } from "../db/index.js";
 import {
   deleteManyFromS3,
-  generatePrivateGetUrl,
+  buildPublicS3Url,
   headObject,
   validatePublicUrlForPrefixes,
 } from "../utils/aws-s3.js";
@@ -122,11 +122,8 @@ const publishVideo = async (req, res, next) => {
       });
     });
 
-    const playbackUrl = await generatePrivateGetUrl({
-      key: video.videos3Key,
-      expiresIn: 3600,
-    });
-      
+    const playbackUrl = buildPublicS3Url(video.videos3Key);
+
     // create pending transcription record
     await prisma.transcription.create({
         data: {
@@ -202,10 +199,7 @@ const getVideoById = async (req, res, next) => {
         .json({ success: false, message: "Video is not published" });
     }
 
-    const playbackUrl = await generatePrivateGetUrl({
-      key: video.videos3Key,
-      expiresIn: 3600,
-    });
+    const playbackUrl = buildPublicS3Url(video.videos3Key);
 
     return res.status(200).json({
       success: true,

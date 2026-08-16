@@ -2,7 +2,6 @@ import { randomUUID } from "crypto";
 import path from "path";
 import {
   DeleteObjectCommand,
-  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -30,8 +29,13 @@ const MEDIA_PREFIX = {
   video: "videos",
 };
 
-const PUBLIC_MEDIA_TYPES = new Set(["avatar", "coverimage", "thumbnail"]);
-const PRIVATE_MEDIA_TYPES = new Set(["video"]);
+const PUBLIC_MEDIA_TYPES = new Set([
+  "avatar",
+  "coverimage",
+  "thumbnail",
+  "video",
+]);
+const PRIVATE_MEDIA_TYPES = new Set();
 
 const normalizeFileName = (fileName = "") => {
   const parsed = path.parse(fileName);
@@ -148,15 +152,6 @@ const generateUploadUrl = async ({ key, contentType, expiresIn = 300 }) => {
   return getSignedUrl(s3, command, { expiresIn });
 };
 
-const generatePrivateGetUrl = async ({ key, expiresIn = 3600 }) => {
-  const command = new GetObjectCommand({
-    Bucket: S3_BUCKET_NAME,
-    Key: key,
-  });
-
-  return getSignedUrl(s3, command, { expiresIn });
-};
-
 const headObject = async (key) => {
   if (!key) {
     return null;
@@ -195,7 +190,6 @@ export {
   inferS3KeyFromPublicUrl,
   validatePublicUrlForPrefixes,
   generateUploadUrl,
-  generatePrivateGetUrl,
   headObject,
   deleteFromS3,
   deleteManyFromS3,

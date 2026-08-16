@@ -1,10 +1,8 @@
 import { prisma } from "../db/index.js";
 import {
-  PRIVATE_MEDIA_TYPES,
   PUBLIC_MEDIA_TYPES,
   buildPublicS3Url,
   buildS3Key,
-  generatePrivateGetUrl,
   generateUploadUrl,
 } from "../utils/aws-s3.js";
 
@@ -149,12 +147,7 @@ const getVideoPlaybackUrl = async (req, res, next) => {
       });
     }
 
-    const expiresIn = 3600;
-
-    const playbackUrl = await generatePrivateGetUrl({
-      key: video.videos3Key,
-      expiresIn,
-    });
+    const playbackUrl = buildPublicS3Url(video.videos3Key);
 
     return res.status(200).json({
       success: true,
@@ -163,7 +156,6 @@ const getVideoPlaybackUrl = async (req, res, next) => {
         videoId: video.id,
         key: video.videos3Key,
         playbackUrl,
-        expiresIn,
       },
       message: "Playback URL generated",
     });
