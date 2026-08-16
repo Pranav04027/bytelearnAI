@@ -63,7 +63,7 @@ This makes the platform closer to an intelligent learning environment than a sta
 
 ### Learner Experience
 
-- Browse and watch educational videos with secure playback URLs
+- Browse and watch educational videos with direct, publicly shareable playback URLs
 - Continue watching from saved progress
 - Bookmark videos and manage likes
 - Comment on lessons and engage socially
@@ -91,7 +91,7 @@ This makes the platform closer to an intelligent learning environment than a sta
 ## Technical Highlights
 
 - Monorepo structure with separate `Frontend` and `Backend` apps
-- Secure private video delivery using presigned S3 URLs
+- Direct public video delivery via stable S3 URLs (avatars, thumbnails, cover images, and videos are all publicly readable)
 - Role-based access for learners and instructors
 - PostgreSQL + Prisma data model
 - Express API with modular routes/controllers
@@ -105,7 +105,7 @@ This project demonstrates ownership across the full stack:
 - Frontend application architecture with protected routes, dashboards, and video-centric UX
 - Backend API design with modular controllers, middleware, and role-based authorization
 - Relational schema design for users, videos, progress, quizzes, subscriptions, and social features
-- Cloud media workflow using S3 presigned uploads and secure playback access
+- Cloud media workflow using S3 presigned uploads for direct-to-S3 uploads, with public playback access for shareable video links
 - AI pipeline design using transcription, chunking, embeddings, retrieval, and generation
 - Personalization through learner memory and engagement-based recommendations
 
@@ -138,7 +138,7 @@ This project demonstrates ownership across the full stack:
 
 ## Architecture Overview
 
-1. Instructors upload video and thumbnail assets using presigned S3 upload URLs.
+ 1. Instructors upload video and thumbnail assets using presigned S3 upload URLs, then videos are served through permanent public S3 URLs so links can be shared directly.
 2. Video metadata is stored in PostgreSQL through Prisma.
 3. AWS Transcribe processes uploaded video audio.
 4. Completed transcripts are saved and chunked into embedding-ready segments.
@@ -292,7 +292,7 @@ The backend exposes modular REST endpoints under `/api/v1`, including:
 - `/recommendations` for personalized content suggestions
 - `/quizzes` for quiz generation, retrieval, and submission
 - `/embeddings` for transcript embeddings and AI Q&A
-- `/awsS3` for presigned media upload and secure playback helpers
+- `/awsS3` for presigned media upload URLs and public playback URL helpers
 
 ## Why This Stands Out
 
