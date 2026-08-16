@@ -5,7 +5,7 @@ import {
   headObject,
   validatePublicUrlForPrefixes,
 } from "../utils/aws-s3.js";
-import { startTranscription } from "../utils/transcribe.utlis.js"
+import { startTranscription } from "../utils/transcribe.utils.js"
 
 const DIFFICULTY_MAPPING = {
   beginner: "beginner",

@@ -1,30 +1,11 @@
-import { randomUUID } from "node:crypto";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import prismaPkg from "@prisma/client";
 import { prisma } from "../db/index.js";
-
-const { Prisma } = prismaPkg;
 import { saveInMem, getImpInfo, retriveFromMem } from "../utils/supermemory.js";
 import {
   embeddingModel,
   geminiEmbeddingModel,
 } from "../utils/geminiEmbedding.js";
 import { retrieveTranscriptChunksDense } from "../services/denseTranscriptRetriever.js";
-
-const geminiApiKey = process.env.GEMINI_API_KEY;
-const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
-
-export const aiModel = genAI?.getGenerativeModel({
-  model: "gemini-2.5-flash-lite",
-  generationConfig: {
-    temperature: 0.7,
-    topP: 0.95,
-    topK: 64,
-    maxOutputTokens: 8192,
-    responseMimeType: "text/plain",
-  },
-});
+import { streamGroundedAnswer } from "../services/ragAnswerService.js";
 
 const initializeSse = (res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -137,13 +118,12 @@ const answerQuestionFromTranscript = async (req, res, next) => {
     }
       
     const isImportant = await getImpInfo(cleanQuestion);
-    
+
     if (isImportant) {
         await saveInMem(req.user.id,isImportant)
     }
-      
+
     ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
-    ensureModel(aiModel, "Gemini answer model is not configured");
 
     initializeSse(res);
     streamOpened = true;
@@ -162,27 +142,6 @@ const answerQuestionFromTranscript = async (req, res, next) => {
       return res.end();
     }
 
-    // Build a stable source metadata array from the retrieved chunks.
-    // Rank-based sourceId (1-indexed) is used for citations so that the
-    // model never needs to see internal database IDs.
-    const sources = matches.map((match, index) => ({
-      sourceId: index + 1,
-      chunkIndex: match.chunkIndex,
-      startMs: match.startMs,
-      endMs: match.endMs,
-      similarity: match.similarity,
-    }));
-
-    // Assign stable source labels based on retrieval rank. Do not expose
-    // database IDs to the model.
-    const contextText = matches
-      .map((match, index) => {
-        const start = match.startMs != null ? match.startMs : "?";
-        const end = match.endMs != null ? match.endMs : "?";
-        return `[Source ${index + 1} | ${start}-${end}]\n${match.content}`;
-      })
-      .join("\n\n");
-
     let memory = "";
     try {
       memory = (await retriveFromMem(req.user.id))?.trim() || "";
@@ -190,13 +149,15 @@ const answerQuestionFromTranscript = async (req, res, next) => {
       memory = "";
     }
 
-    const answer = await streamAnswerWithContext(
-      cleanQuestion,
-      contextText,
+    const { answer, sources } = await streamGroundedAnswer({
+      question: cleanQuestion,
+      matches,
       memory,
-      res,
-      () => clientClosed
-    );
+      isClientClosed: () => clientClosed,
+      onToken: (text) => {
+        writeSseEvent(res, "token", { text });
+      },
+    });
 
     if (!clientClosed) {
       writeSseEvent(res, "done", { answer, sources });
@@ -214,69 +175,6 @@ const answerQuestionFromTranscript = async (req, res, next) => {
 
     next(error);
   }
-};
-
-const streamAnswerWithContext = async (
-  cleanQuestion,
-    contextText,
-    memory,
-  res,
-  isClientClosed
-) => {
-  if (!cleanQuestion || !contextText) {
-    throw new Error("Question and context are required to generate an answer");
-  }
-
-  const model = ensureModel(aiModel, "Gemini answer model is not configured");
-
-  const prompt = `
-You are a brilliant, friendly, and authoritative AI tutor explaining a video to a student.
-Use the provided video transcript context to answer the student's question.
-
-Rules:
-- Speak directly to the student naturally. Do NOT say "Based on the transcript" or "The video discusses". Just answer the question directly and confidently!
-- Answer ONLY using the provided transcript context.
-- If the context does not support the answer, say that the answer could not be found in this video.
-- When making a factual claim that is supported by the transcript context, cite the appropriate source using exactly the format [Source 1], [Source 2], etc. (matching the source labels in the context).
-- Never invent a source number. Only cite sources that appear in the context.
-- Keep the answer concise, structured, and easy to read. Use formatting like numbered lists if explaining multiple points.
-- If there is relevant learner memory below, use it to tailor your explanation to their skill level, context, or weaknesses.
-
-Learner memory:
-${memory || "No prior learner memory available."}
-
-Question:
-${cleanQuestion}
-
-Transcript context:
-${contextText}
-`
-
-  const result = await model.generateContentStream(prompt);
-  let answer = "";
-
-  for await (const chunk of result.stream) {
-    if (isClientClosed()) {
-      break;
-    }
-
-    const text = chunk.text?.();
-
-    if (!text) {
-      continue;
-    }
-
-    answer += text;
-    writeSseEvent(res, "token", { text });
-  }
-
-  const finalAnswer = answer.trim();
-
-  if (!finalAnswer) {
-    throw new Error("Failed to generate an answer from transcript context");
-  }
-
-  return finalAnswer;
 };
 
 export { chunkAndEmbed, answerQuestionFromTranscript };

@@ -3,6 +3,192 @@ import { createPortal } from "react-dom";
 import axiosInstance from "../api/axios.js";
 import { formatMsToTimestamp } from "../utils/time.js";
 
+// Matches [Source 1] or [Source 1, Source 2, Source 4]
+const CITATION_RE = /\[Source\s+(\d+(?:\s*,\s*Source\s+\d+)*)\]/g;
+
+// Remove a trailing "Sources" block that only lists timestamps so the model
+// doesn't duplicate citation information already rendered inline.
+function stripTrailingSources(content) {
+  const blocks = content.split(/\n{2,}/);
+  while (blocks.length) {
+    const lines = blocks[blocks.length - 1].split("\n");
+    const firstLine = lines[0].trim();
+    const restAreTimestamps = lines
+      .slice(1)
+      .every(
+        (l) =>
+          l.trim() === "" || /^[\d:]+\s*[–-]\s*[\d:]*$/.test(l.trim())
+      );
+    if (/^sources?\s*$/i.test(firstLine) && restAreTimestamps) {
+      blocks.pop();
+    } else {
+      break;
+    }
+  }
+  return blocks.join("\n\n");
+}
+
+// Inline **bold** and *italic* -> React nodes (no HTML injection).
+function renderInline(text) {
+  const nodes = [];
+  const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
+  let last = 0;
+  let m;
+  let i = 0;
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m[2] !== undefined) nodes.push(<strong key={`b${i++}`}>{m[2]}</strong>);
+    else if (m[3] !== undefined) nodes.push(<em key={`i${i++}`}>{m[3]}</em>);
+    last = regex.lastIndex;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+function CitationChip({ source, onSeekToMs }) {
+  if (!source) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onSeekToMs && onSeekToMs(source.startMs)}
+      title={`Jump to ${formatMsToTimestamp(source.startMs)}`}
+      className="inline-flex items-center gap-1 mx-0.5 my-0.5 align-middle text-[11px] font-mono bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-full px-2 py-0.5 transition-colors"
+    >
+      <span aria-hidden="true">▶</span>
+      {formatMsToTimestamp(source.startMs)}–{formatMsToTimestamp(source.endMs)}
+    </button>
+  );
+}
+
+// Render a single block of transcript-context text, turning [Source N]
+// markers into inline clickable chips and applying light markdown formatting.
+function renderBlockContent(block, sourceById, onSeekToMs, prefix) {
+  const re = new RegExp(CITATION_RE.source, "g");
+  const tokens = [];
+  let last = 0;
+  let m;
+  while ((m = re.exec(block)) !== null) {
+    if (m.index > last) tokens.push({ type: "text", value: block.slice(last, m.index) });
+    const ids = m[1]
+      .split(/\s*,\s*Source\s*/i)
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !Number.isNaN(n));
+    tokens.push({ type: "cite", ids });
+    last = re.lastIndex;
+  }
+  if (last < block.length) tokens.push({ type: "text", value: block.slice(last) });
+
+  const nodes = [];
+  let ki = 0;
+  tokens.forEach((tok) => {
+    if (tok.type === "cite") {
+      tok.ids.forEach((id) => {
+        if (sourceById[id]) {
+          nodes.push(
+            <CitationChip
+              key={`${prefix}-c${id}`}
+              source={sourceById[id]}
+              onSeekToMs={onSeekToMs}
+            />
+          );
+        }
+      });
+    } else {
+      renderInline(tok.value).forEach((n) =>
+        nodes.push(<span key={`${prefix}-i${ki++}`}>{n}</span>)
+      );
+    }
+  });
+  return nodes;
+}
+
+function AnswerContent({ content, sources, onSeekToMs }) {
+  const sourceById = {};
+  (sources || []).forEach((s) => {
+    sourceById[s.sourceId] = s;
+  });
+
+  const cleaned = stripTrailingSources(content || "");
+  const blocks = cleaned.split(/\n{2,}/);
+
+  const hasInline =
+    (sources || []).length > 0 &&
+    (sources || []).some((s) => cleaned.includes(`[Source ${s.sourceId}`));
+
+  return (
+    <div className="space-y-1">
+      {blocks.map((block, bi) => {
+        const lines = block.split("\n");
+        const isBullet =
+          lines.length > 0 && lines.every((l) => /^\s*[*-]\s+/.test(l));
+        const isNumbered =
+          lines.length > 0 && lines.every((l) => /^\s*\d+\.\s+/.test(l));
+
+        if (isBullet) {
+          return (
+            <ul key={bi} className="list-disc pl-5 space-y-1 my-1">
+              {lines
+                .filter((l) => l.trim())
+                .map((l, i) => (
+                  <li key={i}>
+                    {renderBlockContent(
+                      l.replace(/^\s*[*-]\s+/, ""),
+                      sourceById,
+                      onSeekToMs,
+                      `b${bi}-${i}`
+                    )}
+                  </li>
+                ))}
+            </ul>
+          );
+        }
+
+        if (isNumbered) {
+          return (
+            <ol key={bi} className="list-decimal pl-5 space-y-1 my-1">
+              {lines
+                .filter((l) => l.trim())
+                .map((l, i) => (
+                  <li key={i}>
+                    {renderBlockContent(
+                      l.replace(/^\s*\d+\.\s+/, ""),
+                      sourceById,
+                      onSeekToMs,
+                      `n${bi}-${i}`
+                    )}
+                  </li>
+                ))}
+            </ol>
+          );
+        }
+
+        return (
+          <p key={bi} className="whitespace-pre-line my-1">
+            {renderBlockContent(block, sourceById, onSeekToMs, `p${bi}`)}
+          </p>
+        );
+      })}
+
+      {!hasInline && (sources || []).length > 0 && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1">
+            Sources
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {sources.map((s) => (
+              <CitationChip
+                key={`fallback-${s.sourceId}`}
+                source={s}
+                onSeekToMs={onSeekToMs}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const VideoChatDrawer = ({ videoId, isOpen, onClose, onSeekToMs }) => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState("");
@@ -162,7 +348,7 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose, onSeekToMs }) => {
                 }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap ${
+                  className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
                     msg.role === "user"
                       ? "bg-indigo-600 text-white rounded-br-none"
                       : isNotCovered(msg.content)
@@ -176,39 +362,20 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose, onSeekToMs }) => {
                       <p className="font-medium">Not covered in this video</p>
                       <p className="text-xs opacity-80">Try rephrasing the question.</p>
                     </div>
+                  ) : msg.role === "ai" ? (
+                    <>
+                      <AnswerContent
+                        content={msg.content}
+                        sources={msg.sources}
+                        onSeekToMs={onSeekToMs}
+                      />
+                      {!msg.content && isLoading && (
+                        <span className="animate-pulse">...</span>
+                      )}
+                    </>
                   ) : (
                     msg.content
                   )}
-                  {msg.role === "ai" && !msg.content && isLoading && (
-                    <span className="animate-pulse">...</span>
-                  )}
-                  {msg.role === "ai" &&
-                    msg.sources &&
-                    msg.sources.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-gray-100">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1">
-                          Sources
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {msg.sources.map((s) => (
-                            <button
-                              key={s.sourceId}
-                              type="button"
-                              onClick={() =>
-                                onSeekToMs && onSeekToMs(s.startMs)
-                              }
-                              title={`Jump to ${formatMsToTimestamp(
-                                s.startMs
-                              )}`}
-                              className="text-xs font-mono bg-gray-100 hover:bg-indigo-100 hover:text-indigo-700 text-gray-700 rounded px-2 py-0.5 transition-colors"
-                            >
-                              {formatMsToTimestamp(s.startMs)}–
-                              {formatMsToTimestamp(s.endMs)}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                 </div>
               </div>
             ))
