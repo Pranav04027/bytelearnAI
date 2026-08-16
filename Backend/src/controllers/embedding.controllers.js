@@ -5,27 +5,15 @@ import prismaPkg from "@prisma/client";
 import { prisma } from "../db/index.js";
 
 const { Prisma } = prismaPkg;
-import {saveInMem, getImpInfo, retriveFromMem} from "../utils/supermemory.js"
+import { saveInMem, getImpInfo, retriveFromMem } from "../utils/supermemory.js";
+import {
+  embeddingModel,
+  geminiEmbeddingModel,
+} from "../utils/geminiEmbedding.js";
+import { retrieveTranscriptChunksDense } from "../services/denseTranscriptRetriever.js";
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
-const configuredEmbeddingModel =
-  process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-001";
-const geminiEmbeddingModel =
-  configuredEmbeddingModel === "text-embedding-004"
-    ? "gemini-embedding-001"
-    : configuredEmbeddingModel;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
-const embeddingModel = genAI?.getGenerativeModel(
-  {
-    model: geminiEmbeddingModel,
-  },
-  {
-    apiVersion: process.env.GEMINI_API_VERSION || "v1beta",
-    baseUrl:
-      process.env.GEMINI_API_BASE_URL ||
-      "https://generativelanguage.googleapis.com",
-  }
-);
 
 export const aiModel = genAI?.getGenerativeModel({
   model: "gemini-2.5-flash-lite",
@@ -37,8 +25,6 @@ export const aiModel = genAI?.getGenerativeModel({
     responseMimeType: "text/plain",
   },
 });
-
-const createVectorLiteral = (values) => `[${values.join(",")}]`;
 
 const initializeSse = (res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -163,30 +149,10 @@ const answerQuestionFromTranscript = async (req, res, next) => {
     streamOpened = true;
     writeSseEvent(res, "start", { videoId });
 
-    const result = await embeddingModel.embedContent(cleanQuestion);
-    const queryEmbedding = result?.embedding?.values;
-
-    if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
-      throw new Error("Failed to generate embedding for the question");
-    }
-
-    const vectorLiteral = createVectorLiteral(queryEmbedding.slice(0, 768));
-
-    const matches = await prisma.$queryRaw`
-      SELECT
-        id,
-        content,
-        "chunkIndex",
-        "startMs",
-        "endMs",
-        1 - (embedding <=> CAST(${vectorLiteral} AS vector)) AS similarity
-      FROM "TranscriptChunk"
-      WHERE "videoId" = ${videoId}
-      AND embedding IS NOT NULL
-      AND 1 - (embedding <=> CAST(${vectorLiteral} AS vector)) > 0.3
-      ORDER BY similarity DESC
-      LIMIT 5;
-    `;
+    const matches = await retrieveTranscriptChunksDense(
+      videoId,
+      cleanQuestion
+    );
 
     if (!matches || matches.length === 0) {
       writeSseEvent(res, "token", {
