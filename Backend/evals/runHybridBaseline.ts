@@ -12,14 +12,14 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const GOLD_PATH = path.resolve(__dirname, "dataset/gold.json");
 const RESULTS_DIR = path.resolve(__dirname, "results");
-const RESULTS_PATH = path.join(RESULTS_DIR, "dense-baseline-v1.json");
+const RESULTS_PATH = path.join(RESULTS_DIR, "hybrid-rrf-v2.json");
 
 const K = 5;
 const DEFAULT_DELAY_MS = 2000;
 const RATE_LIMIT_BACKOFF_MS = [5000, 10000, 20000, 40000, 60000];
 
 let prismaClient = null;
-let retrieveTranscriptChunksDense = null;
+let retrieveHybridTranscriptChunks = null;
 let hitAtK = null;
 let recallAtK = null;
 let precisionAtK = null;
@@ -48,7 +48,7 @@ async function retrieveWithRetry(videoId, question) {
   let attempt = 0;
   for (;;) {
     try {
-      return await retrieveTranscriptChunksDense(videoId, question);
+      return await retrieveHybridTranscriptChunks(videoId, question);
     } catch (err) {
       if (!isRateLimitError(err)) throw err;
       if (attempt >= RATE_LIMIT_BACKOFF_MS.length) throw err;
@@ -97,8 +97,8 @@ function writeResults(data) {
 async function main() {
   const { prisma } = await import("../src/db/index.js");
   prismaClient = prisma;
-  const { retrieveTranscriptChunksDense: _r } = await import("../src/services/denseTranscriptRetriever.js");
-  retrieveTranscriptChunksDense = _r;
+  const { retrieveHybridTranscriptChunks: _r } = await import("../src/services/hybridTranscriptRetriever.js");
+  retrieveHybridTranscriptChunks = _r;
   const { hitAtK: _h } = await import("./retrieval/hitAtK.ts"); hitAtK = _h;
   const { recallAtK: _rc } = await import("./retrieval/recallAtK.ts"); recallAtK = _rc;
   const { precisionAtK: _p } = await import("./retrieval/precisionAtK.ts"); precisionAtK = _p;
@@ -196,6 +196,8 @@ async function main() {
       startMs: m.startMs,
       endMs: m.endMs,
       similarity: m.similarity,
+      retrievalScore: m.retrievalScore,
+      retrievalMode: m.retrievalMode,
       content: m.content,
     }));
 
@@ -271,10 +273,10 @@ function buildMetadata({
   complete,
 }) {
   return {
-    name: "Dense Baseline v1",
+    name: "Hybrid RRF v2",
     k: K,
     generatedAt: new Date().toISOString(),
-    retrievalMode: "existing-production-dense",
+    retrievalMode: "hybrid-rrf",
     totalGoldExamples,
     answerableExamples,
     skippedUnanswerable,
@@ -315,8 +317,8 @@ function aggregateByCategory(entries) {
 function printSummary(output) {
   const { metadata, overall, byCategory, examples, errors } = output;
   const f = (n) => (typeof n === "number" ? n.toFixed(4) : String(n));
-  console.log("\nDense Baseline v1");
-  console.log("=================");
+  console.log("\nHybrid RRF v2");
+  console.log("==============");
   console.log(`K: ${metadata.k}`);
   console.log(`Evaluated: ${metadata.completedExamples}`);
   console.log(`Skipped unanswerable: ${metadata.skippedUnanswerable}`);
@@ -339,31 +341,6 @@ function printSummary(output) {
     console.log(`  Timestamp Coverage@5: ${f(agg.timestampCoverageAt5)}`);
   }
 
-  const weakest = [...examples]
-    .sort((a, b) => {
-      const ah = a.metrics.hitAt5 ? 1 : 0;
-      const bh = b.metrics.hitAt5 ? 1 : 0;
-      if (ah !== bh) return ah - bh;
-      if (a.metrics.recallAt5 !== b.metrics.recallAt5)
-        return a.metrics.recallAt5 - b.metrics.recallAt5;
-      return a.metrics.reciprocalRankAt5 - b.metrics.reciprocalRankAt5;
-    })
-    .slice(0, 10);
-
-  console.log("\nWeakest examples");
-  for (const e of weakest) {
-    console.log(`- ${e.id} [${e.category}]`);
-    console.log(`  Q: ${e.question}`);
-    console.log(
-      `  hit=${e.metrics.hitAt5 ? 1 : 0} recall=${f(e.metrics.recallAt5)} precision=${f(e.metrics.precisionAt5)} rr=${f(e.metrics.reciprocalRankAt5)} coverage=${f(e.metrics.timestampCoverageAt5)}`
-    );
-    for (const r of e.retrieved) {
-      console.log(
-        `  #${r.rank} chunk=${r.chunkIndex} sim=${f(r.similarity)} [${r.startMs}-${r.endMs}]`
-      );
-    }
-  }
-
   console.log(`\nResult written to:\n${RESULTS_PATH}`);
 }
 
@@ -379,4 +356,3 @@ main()
       /* ignore */
     }
   });
-

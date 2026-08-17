@@ -4,8 +4,8 @@ import {
   embeddingModel,
   geminiEmbeddingModel,
 } from "../utils/geminiEmbedding.js";
-import { retrieveTranscriptChunksDense } from "../services/denseTranscriptRetriever.js";
-import { streamGroundedAnswer } from "../services/ragAnswerService.js";
+import { retrieveHybridTranscriptChunks } from "../services/hybridTranscriptRetriever.js";
+import { streamGroundedAnswer, ABSTENTION_RESPONSE } from "../services/ragAnswerService.js";
 
 const initializeSse = (res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -129,16 +129,14 @@ const answerQuestionFromTranscript = async (req, res, next) => {
     streamOpened = true;
     writeSseEvent(res, "start", { videoId });
 
-    const matches = await retrieveTranscriptChunksDense(
+    const matches = await retrieveHybridTranscriptChunks(
       videoId,
       cleanQuestion
     );
 
     if (!matches || matches.length === 0) {
-      const noMatchAnswer =
-        "I couldn't find a relevant answer in this video's transcript. Try rephrasing the question.";
-      writeSseEvent(res, "token", { text: noMatchAnswer });
-      writeSseEvent(res, "done", { answer: noMatchAnswer, sources: [] });
+      writeSseEvent(res, "token", { text: ABSTENTION_RESPONSE });
+      writeSseEvent(res, "done", { answer: ABSTENTION_RESPONSE, sources: [] });
       return res.end();
     }
 

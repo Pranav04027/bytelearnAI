@@ -307,7 +307,10 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose, onSeekToMs }) => {
   };
 
   const isNotCovered = (content) => {
-    return content.includes("I couldn't find a relevant answer in this video's transcript");
+    return (
+      content.includes("I couldn't find a relevant answer in this video's transcript") ||
+      content.includes("I couldn't find enough information in this video to answer that")
+    );
   };
 
   return createPortal(

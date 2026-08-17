@@ -26,17 +26,41 @@ const ensureModel = (model, message) => {
   return model;
 };
 
-// Build a stable source metadata array from the retrieved chunks.
+// Exact abstention response returned when the transcript lacks evidence.
+export const ABSTENTION_RESPONSE =
+  "I couldn't find enough information in this video to answer that.";
+
+// Matches [Source 1] or [Source 1, Source 2, Source 4].
+const CITATION_RE = /\[Source\s+(\d+(?:\s*,\s*Source\s+\d+)*)\]/g;
+
+// Build a stable source metadata object from a retrieved chunk.
 // Rank-based sourceId (1-indexed) is used for citations so that the
 // model never needs to see internal database IDs.
-const buildSources = (matches) =>
-  matches.map((match, index) => ({
-    sourceId: index + 1,
-    chunkIndex: match.chunkIndex,
-    startMs: match.startMs,
-    endMs: match.endMs,
-    similarity: match.similarity,
-  }));
+const buildSource = (match, index) => ({
+  sourceId: index + 1,
+  chunkIndex: match.chunkIndex,
+  startMs: match.startMs,
+  endMs: match.endMs,
+  similarity: match.similarity,
+});
+
+const buildSources = (matches) => matches.map(buildSource);
+
+// Extract the distinct [Source N] ids referenced in a generated answer.
+// Invalid/non-numeric tokens are ignored.
+const extractCitedSourceIds = (answer) => {
+  const ids = new Set();
+  const re = new RegExp(CITATION_RE.source, "g");
+  let m;
+  while ((m = re.exec(answer)) !== null) {
+    m[1]
+      .split(/\s*,\s*Source\s*/i)
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isInteger(n))
+      .forEach((n) => ids.add(n));
+  }
+  return [...ids];
+};
 
 // Assign stable source labels based on retrieval rank. Do not expose
 // database IDs to the model.
@@ -51,16 +75,20 @@ const buildContextText = (matches) =>
 
 const buildPrompt = (question, contextText, memory) => `
 You are a brilliant, friendly, and authoritative AI tutor explaining a video to a student.
-Use the provided video transcript context to answer the student's question.
 
-Rules:
-- Speak directly to the student naturally. Do NOT say "Based on the transcript" or "The video discusses". Just answer the question directly and confidently!
-- Answer ONLY using the provided transcript context.
-- If the context does not support the answer, say that the answer could not be found in this video.
-- When making a factual claim that is supported by the transcript context, cite the appropriate source using exactly the format [Source 1], [Source 2], etc. (matching the source labels in the context).
-- Never invent a source number. Only cite sources that appear in the context.
-- Keep the answer concise, structured, and easy to read. Use formatting like numbered lists if explaining multiple points.
-- If there is relevant learner memory below, use it to tailor your explanation to their skill level, context, or weaknesses.
+Grounding rules (strictly enforced):
+- The provided transcript context is the ONLY factual source. Use ONLY it to answer.
+- Do NOT use any outside or general knowledge not present in the transcript context.
+- Do NOT infer or state facts that are not directly supported by the transcript context.
+- Learner memory below may ONLY personalize your explanation style (tone, examples, level). It is NEVER factual evidence — do not cite it and do not treat it as a source.
+- When a factual claim is supported by the transcript context, cite the supporting source using exactly the format [Source 1], [Source 2], etc., matching the source labels in the context.
+- Only cite source numbers that actually exist in the context. Never invent or guess a citation number.
+- Speak directly to the student naturally. Do NOT say "Based on the transcript" or "The video discusses".
+- Keep the answer concise, structured, and easy to read. Use formatting like numbered lists when explaining multiple points.
+
+Abstention:
+- If the transcript context does not contain enough evidence to answer the question, respond with EXACTLY this sentence and nothing else (no citation, no extra text):
+${ABSTENTION_RESPONSE}
 
 Learner memory:
 ${memory || "No prior learner memory available."}
@@ -127,5 +155,17 @@ export async function streamGroundedAnswer({
     throw new Error("Failed to generate an answer from transcript context");
   }
 
-  return { answer: finalAnswer, sources };
+  // Grounding post-processing: return metadata only for sources actually
+  // cited in the answer, ignoring invalid/non-existent source numbers.
+  // On the exact abstention response, no sources are returned.
+  let citedSources = [];
+  if (finalAnswer !== ABSTENTION_RESPONSE) {
+    const validIds = new Set(matches.map((_, index) => index + 1));
+    const citedIds = extractCitedSourceIds(finalAnswer).filter((id) =>
+      validIds.has(id)
+    );
+    citedSources = citedIds.map((id) => buildSource(matches[id - 1], id - 1));
+  }
+
+  return { answer: finalAnswer, sources: citedSources };
 }

@@ -10,10 +10,11 @@ import { embeddingModel, createVectorLiteral } from "../utils/geminiEmbedding.js
  *   - builds a pgvector literal
  *   - cosine similarity: 1 - (embedding <=> queryVector)
  *   - requires same videoId, non-null embedding, similarity > 0.3
- *   - ordered by similarity descending, limited to 5
+ *   - ordered by similarity descending, limited to `limit` (default 5)
  *
  * @param {string} videoId
  * @param {string} question
+ * @param {number} [limit=5]
  * @returns {Promise<Array<{
  *   id: string,
  *   content: string,
@@ -23,7 +24,7 @@ import { embeddingModel, createVectorLiteral } from "../utils/geminiEmbedding.js
  *   similarity: number,
  * }>>}
  */
-export async function retrieveTranscriptChunksDense(videoId, question) {
+export async function retrieveTranscriptChunksDense(videoId, question, limit = 5) {
   const cleanQuestion = typeof question === "string" ? question.trim() : "";
 
   if (!videoId || !cleanQuestion) {
@@ -56,7 +57,7 @@ export async function retrieveTranscriptChunksDense(videoId, question) {
     AND embedding IS NOT NULL
     AND 1 - (embedding <=> CAST(${vectorLiteral} AS vector)) > 0.3
     ORDER BY similarity DESC
-    LIMIT 5;
+    LIMIT ${limit};
   `;
 
   return matches;
