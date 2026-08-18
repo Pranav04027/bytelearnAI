@@ -5,7 +5,16 @@ import {
   geminiEmbeddingModel,
 } from "../utils/geminiEmbedding.js";
 import { retrieveHybridTranscriptChunks } from "../services/hybridTranscriptRetriever.js";
-import { streamGroundedAnswer, ABSTENTION_RESPONSE } from "../services/ragAnswerService.js";
+import {
+  streamGroundedAnswer,
+  ABSTENTION_RESPONSE,
+  ANSWER_MODEL_NAME,
+} from "../services/ragAnswerService.js";
+import {
+  trace,
+  randomUUID,
+  isLangSmithEnabled,
+} from "../observability/langsmithTracer.js";
 
 const initializeSse = (res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -97,72 +106,145 @@ const answerQuestionFromTranscript = async (req, res, next) => {
     clientClosed = true;
   });
 
+  // Safe, non-secret context for the root trace. Never include req/res,
+  // headers, tokens, cookies, or passwords here.
+  const requestId = randomUUID();
+  const userId = req.user?.id || null;
+  const { videoId, question } = req.body || {};
+  const cleanQuestion = typeof question === "string" ? question.trim() : "";
+
+  const rootInputs = {
+    videoId,
+    question: cleanQuestion,
+    userId,
+    mode: "hybrid",
+  };
+  const rootMetadata = {
+    environment: process.env.NODE_ENV || "development",
+    model: ANSWER_MODEL_NAME,
+    project: "bytelearn",
+    requestId,
+    tracingEnabled: isLangSmithEnabled(),
+  };
+  const rootTags = ["bytelearn", "answer", "hybrid"];
+
   try {
-      const { videoId, question } = req.body;
-      
+    return await trace(
+      "ByteLearnAnswerRequest",
+      async () => {
+        if (!videoId || !cleanQuestion) {
+          return res.status(400).json({
+            success: false,
+            message: "videoId and question are required",
+          });
+        }
 
-    if (!videoId || !question) {
-      return res.status(400).json({
-        success: false,
-        message: "videoId and question are required",
-      });
-    }
+        if (!cleanQuestion) {
+          return res.status(400).json({
+            success: false,
+            message: "question cannot be empty",
+          });
+        }
 
-    const cleanQuestion = question.trim();
+        const isImportant = await getImpInfo(cleanQuestion);
 
-    if (!cleanQuestion) {
-      return res.status(400).json({
-        success: false,
-        message: "question cannot be empty",
-      });
-    }
-      
-    const isImportant = await getImpInfo(cleanQuestion);
+        if (isImportant) {
+          await saveInMem(req.user.id, isImportant);
+        }
 
-    if (isImportant) {
-        await saveInMem(req.user.id,isImportant)
-    }
+        ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
 
-    ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
+        initializeSse(res);
+        streamOpened = true;
+        writeSseEvent(res, "start", { videoId });
 
-    initializeSse(res);
-    streamOpened = true;
-    writeSseEvent(res, "start", { videoId });
+        const matches = await retrieveHybridTranscriptChunks(
+          videoId,
+          cleanQuestion
+        );
 
-    const matches = await retrieveHybridTranscriptChunks(
-      videoId,
-      cleanQuestion
-    );
+        if (!matches || matches.length === 0) {
+          writeSseEvent(res, "token", { text: ABSTENTION_RESPONSE });
+          writeSseEvent(res, "done", {
+            answer: ABSTENTION_RESPONSE,
+            sources: [],
+          });
+          return res.end();
+        }
 
-    if (!matches || matches.length === 0) {
-      writeSseEvent(res, "token", { text: ABSTENTION_RESPONSE });
-      writeSseEvent(res, "done", { answer: ABSTENTION_RESPONSE, sources: [] });
-      return res.end();
-    }
+        // Learner memory retrieval (personalization context for generation).
+        const memory = await trace(
+          "learnerMemory",
+          async () => {
+            let mem = "";
+            try {
+              mem = (await retriveFromMem(req.user.id))?.trim() || "";
+            } catch (_) {
+              mem = "";
+            }
+            return mem;
+          },
+          {
+            runType: "chain",
+            inputs: { userId, question: cleanQuestion },
+            outputs: (mem) => ({
+              hadMemory: !!mem && mem.length > 0,
+              memoryLength: mem?.length ?? 0,
+            }),
+          }
+        );
 
-    let memory = "";
-    try {
-      memory = (await retriveFromMem(req.user.id))?.trim() || "";
-    } catch (_) {
-      memory = "";
-    }
+        const genStart = Date.now();
+        const { answer, sources } = await trace(
+          "groundedGeneration",
+          () =>
+            streamGroundedAnswer({
+              question: cleanQuestion,
+              matches,
+              memory,
+              isClientClosed: () => clientClosed,
+              onToken: (text) => {
+                writeSseEvent(res, "token", { text });
+              },
+            }),
+          {
+            runType: "llm",
+            inputs: {
+              question: cleanQuestion,
+              matchCount: matches.length,
+              hasMemory: !!memory,
+              model: ANSWER_MODEL_NAME,
+            },
+            outputs: (r) => ({
+              abstained: r.answer === ABSTENTION_RESPONSE,
+              answerLength: r.answer.length,
+              citedSourceCount: r.sources.length,
+              latencyMs: Date.now() - genStart,
+              model: ANSWER_MODEL_NAME,
+            }),
+            invocationParams: {
+              model: ANSWER_MODEL_NAME,
+              temperature: 0.7,
+              topP: 0.95,
+              topK: 64,
+              maxOutputTokens: 8192,
+            },
+          }
+        );
 
-    const { answer, sources } = await streamGroundedAnswer({
-      question: cleanQuestion,
-      matches,
-      memory,
-      isClientClosed: () => clientClosed,
-      onToken: (text) => {
-        writeSseEvent(res, "token", { text });
+        if (!clientClosed) {
+          writeSseEvent(res, "done", { answer, sources });
+          res.end();
+        }
+
+        return;
       },
-    });
-
-    if (!clientClosed) {
-      writeSseEvent(res, "done", { answer, sources });
-      res.end();
-    }
-
-    return;
+      {
+        inputs: rootInputs,
+        metadata: rootMetadata,
+        tags: rootTags,
+      }
+    );
   } catch (error) {
     if (streamOpened && !res.writableEnded) {
       writeSseEvent(res, "error", {

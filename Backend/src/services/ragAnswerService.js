@@ -1,12 +1,15 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { trace } from "../observability/langsmithTracer.js";
 
 // Answer-generation Gemini model. This is intentionally separate from the
 // embedding model in src/utils/geminiEmbedding.js (different concern).
+export const ANSWER_MODEL_NAME = "gemini-2.5-flash-lite";
+
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 
 export const aiModel = genAI?.getGenerativeModel({
-  model: "gemini-2.5-flash-lite",
+  model: ANSWER_MODEL_NAME,
   generationConfig: {
     temperature: 0.7,
     topP: 0.95,
@@ -158,14 +161,33 @@ export async function streamGroundedAnswer({
   // Grounding post-processing: return metadata only for sources actually
   // cited in the answer, ignoring invalid/non-existent source numbers.
   // On the exact abstention response, no sources are returned.
-  let citedSources = [];
-  if (finalAnswer !== ABSTENTION_RESPONSE) {
-    const validIds = new Set(matches.map((_, index) => index + 1));
-    const citedIds = extractCitedSourceIds(finalAnswer).filter((id) =>
-      validIds.has(id)
-    );
-    citedSources = citedIds.map((id) => buildSource(matches[id - 1], id - 1));
-  }
+  const citedSources = await trace(
+    "citationValidation",
+    () => validateCitations(finalAnswer, matches),
+    {
+      runType: "chain",
+      inputs: { answerLength: finalAnswer.length, matchCount: matches.length },
+      outputs: (sources) => ({
+        validatedSourceCount: sources.length,
+        citedSourceIds: sources.map((s) => s.sourceId),
+      }),
+    }
+  );
 
   return { answer: finalAnswer, sources: citedSources };
+}
+
+// Pure grounding post-processor: return metadata only for sources actually
+// cited in the answer, ignoring invalid/non-existent source numbers. On the
+// exact abstention response, no sources are returned.
+export function validateCitations(answer, matches) {
+  if (answer === ABSTENTION_RESPONSE) {
+    return [];
+  }
+
+  const validIds = new Set(matches.map((_, index) => index + 1));
+  const citedIds = extractCitedSourceIds(answer).filter((id) =>
+    validIds.has(id)
+  );
+  return citedIds.map((id) => buildSource(matches[id - 1], id - 1));
 }

@@ -1,6 +1,7 @@
 import { retrieveTranscriptChunksDense } from "./denseTranscriptRetriever.js";
 import { retrieveTranscriptChunksLexical } from "./lexicalTranscriptRetriever.js";
 import { reciprocalRankFusion } from "./reciprocalRankFusion.js";
+import { trace } from "../observability/langsmithTracer.js";
 
 const DENSE_CANDIDATES = 10;
 const LEXICAL_CANDIDATES = 10;
@@ -22,9 +23,74 @@ const FINAL_K = 5;
  * @returns {Promise<Array<object>>}
  */
 export async function retrieveHybridTranscriptChunks(videoId, question, topK = FINAL_K) {
-  const dense = await retrieveTranscriptChunksDense(videoId, question, DENSE_CANDIDATES);
-  const lexical = await retrieveTranscriptChunksLexical(videoId, question, LEXICAL_CANDIDATES);
-  return reciprocalRankFusion(dense, lexical, { topK });
+  return trace(
+    "hybridRetrieval",
+    async () => {
+      const dense = await trace(
+        "denseRetrieval",
+        () => retrieveTranscriptChunksDense(videoId, question, DENSE_CANDIDATES),
+        {
+          runType: "retriever",
+          inputs: { videoId, limit: DENSE_CANDIDATES },
+          outputs: (matches) => ({
+            count: matches.length,
+            chunkIds: matches.map((m) => m.id),
+            topSimilarity: matches[0]?.similarity ?? null,
+            topStartMs: matches[0]?.startMs ?? null,
+            topEndMs: matches[0]?.endMs ?? null,
+          }),
+        }
+      );
+
+      const lexical = await trace(
+        "lexicalRetrieval",
+        () =>
+          retrieveTranscriptChunksLexical(videoId, question, LEXICAL_CANDIDATES),
+        {
+          runType: "retriever",
+          inputs: { videoId, limit: LEXICAL_CANDIDATES },
+          outputs: (matches) => ({
+            count: matches.length,
+            chunkIds: matches.map((m) => m.id),
+            topLexicalRank: matches[0]?.lexicalRank ?? null,
+          }),
+        }
+      );
+
+      return trace(
+        "reciprocalRankFusion",
+        () => reciprocalRankFusion(dense, lexical, { topK }),
+        {
+          runType: "chain",
+          inputs: {
+            topK,
+            k: 60,
+            denseCount: dense.length,
+            lexicalCount: lexical.length,
+          },
+          outputs: (matches) => ({
+            count: matches.length,
+            chunkIds: matches.map((m) => m.id),
+            retrievalScores: matches.map((m) => m.retrievalScore),
+          }),
+        }
+      );
+    },
+    {
+      runType: "retriever",
+      inputs: {
+        videoId,
+        question,
+        topK,
+        denseCandidates: DENSE_CANDIDATES,
+        lexicalCandidates: LEXICAL_CANDIDATES,
+      },
+      outputs: (matches) => ({
+        count: matches.length,
+        chunkIds: matches.map((m) => m.id),
+      }),
+    }
+  );
 }
 
 export { DENSE_CANDIDATES, LEXICAL_CANDIDATES, FINAL_K };

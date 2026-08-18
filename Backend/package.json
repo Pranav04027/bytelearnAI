@@ -46,6 +46,7 @@
     "express-xss-sanitizer": "^2.0.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "langsmith": "^0.8.11",
     "pg": "^8.20.0",
     "prisma": "^7.8.0",
     "supermemory": "^4.17.0",
