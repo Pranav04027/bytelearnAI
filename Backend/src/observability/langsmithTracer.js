@@ -17,12 +17,7 @@ import { traceable } from "langsmith/traceable";
 //   LANGSMITH_PROJECT=bytelearn   (optional)
 // ---------------------------------------------------------------------------
 
-const PROJECT = process.env.LANGSMITH_PROJECT || "bytelearn";
-
-// Fire-and-forget by default: the HTTP response never waits on LangSmith
-// uploading telemetry. Set LANGSMITH_BLOCK_ON_FLUSH=true only in tests/CI to
-// await flushing (useful for asserting the trace hierarchy).
-const BLOCK_ON_FLUSH = process.env.LANGSMITH_BLOCK_ON_FLUSH === "true";
+const PROJECT = process.env.LANGSMITH_PROJECT || "byteLearn";
 
 export function isLangSmithEnabled() {
   return (
@@ -86,7 +81,7 @@ function getClient() {
  *  - Nested trace() calls auto-nest into the correct parent/child hierarchy
  *    (via traceable's AsyncLocalStorage context).
  *  - Spans are uploaded in the background; the caller never blocks on the
- *    network (unless LANGSMITH_BLOCK_ON_FLUSH is set for tests).
+ *    network.
  *  - Errors thrown by `fn()` are recorded on the span and re-thrown, so callers
  *    observe exactly the same error they would without tracing.
  *  - Only the explicitly provided `inputs`/`outputs`/`metadata` are sent — the
@@ -142,20 +137,13 @@ export async function trace(name, fn, opts = {}) {
 
   const result = await wrapped();
 
-  // Finalization (and the createRun upload) happens in a background chain that
-  // is not awaited by the caller. When tracing is OFF-for-real but we're in a
-  // test (injected client) or LANGSMITH_BLOCK_ON_FLUSH is set, wait for the
-  // background work so callers/tests can observe the recorded runs. This only
-  // affects test/CI paths; production never blocks on telemetry.
-  if ((BLOCK_ON_FLUSH || injectedClient) && client) {
+  // Finalization (createRun upload) runs in a background chain that is not
+  // awaited by the caller, so production never blocks on telemetry. The only
+  // exception is the test recorder: when a client is injected via
+  // __setClientForTesting, we await one tick so the recorder can observe the
+  // recorded runs before assertions run.
+  if (injectedClient && client) {
     await new Promise((r) => setTimeout(r, 0));
-    if (typeof client.awaitPendingTraceBatches === "function") {
-      try {
-        await client.awaitPendingTraceBatches();
-      } catch {
-        // ignore: telemetry must never break the request
-      }
-    }
   }
 
   return result;

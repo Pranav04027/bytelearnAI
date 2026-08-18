@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "@aws-sdk/s3-request-presigner": "^3.1011.0",
-    "@supermemory/ai-sdk": "^1.0.8"
+    "@langchain/core": "^1.2.8",
+    "@supermemory/ai-sdk": "^1.0.8",
+    "openevals": "^0.2.2"
   }
 }
