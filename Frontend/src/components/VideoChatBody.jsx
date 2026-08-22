@@ -1,0 +1,395 @@
+import React, { useState, useRef, useEffect } from "react";
+import axiosInstance from "../api/axios.js";
+import { formatMsToTimestamp } from "../utils/time.js";
+import { Bot, SearchX, Send } from "lucide-react";
+
+// Matches [Source 1] or [Source 1, Source 2, Source 4]
+const CITATION_RE = /\[Source\s+(\d+(?:\s*,\s*Source\s+\d+)*)\]/g;
+
+// Remove a trailing "Sources" block that only lists timestamps so the model
+// doesn't duplicate citation information already rendered inline.
+function stripTrailingSources(content) {
+  const blocks = content.split(/\n{2,}/);
+  while (blocks.length) {
+    const lines = blocks[blocks.length - 1].split("\n");
+    const firstLine = lines[0].trim();
+    const restAreTimestamps = lines
+      .slice(1)
+      .every(
+        (l) =>
+          l.trim() === "" || /^[\d:]+\s*[–-]\s*[\d:]*$/.test(l.trim())
+      );
+    if (/^sources?\s*$/i.test(firstLine) && restAreTimestamps) {
+      blocks.pop();
+    } else {
+      break;
+    }
+  }
+  return blocks.join("\n\n");
+}
+
+// Inline **bold** and *italic* -> React nodes (no HTML injection).
+function renderInline(text) {
+  const nodes = [];
+  const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
+  let last = 0;
+  let m;
+  let i = 0;
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m[2] !== undefined) nodes.push(<strong key={`b${i++}`}>{m[2]}</strong>);
+    else if (m[3] !== undefined) nodes.push(<em key={`i${i++}`}>{m[3]}</em>);
+    last = regex.lastIndex;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+function CitationChip({ source, onSeekToMs }) {
+  if (!source) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onSeekToMs && onSeekToMs(source.startMs)}
+      title={`Jump to ${formatMsToTimestamp(source.startMs)}`}
+      className="inline-flex items-center gap-1 mx-0.5 my-0.5 align-middle text-[11px] font-mono bg-white hover:bg-slate-50 text-[#994d51] border border-slate-200 rounded-full px-2 py-0.5 shadow-sm transition-colors"
+    >
+      <span aria-hidden="true">▶</span>
+      {formatMsToTimestamp(source.startMs)}–{formatMsToTimestamp(source.endMs)}
+    </button>
+  );
+}
+
+// Render a single block of transcript-context text, turning [Source N]
+// markers into inline clickable chips and applying light markdown formatting.
+function renderBlockContent(block, sourceById, onSeekToMs, prefix) {
+  const re = new RegExp(CITATION_RE.source, "g");
+  const tokens = [];
+  let last = 0;
+  let m;
+  while ((m = re.exec(block)) !== null) {
+    if (m.index > last) tokens.push({ type: "text", value: block.slice(last, m.index) });
+    const ids = m[1]
+      .split(/\s*,\s*Source\s*/i)
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !Number.isNaN(n));
+    tokens.push({ type: "cite", ids });
+    last = re.lastIndex;
+  }
+  if (last < block.length) tokens.push({ type: "text", value: block.slice(last) });
+
+  const nodes = [];
+  let ki = 0;
+  tokens.forEach((tok) => {
+    if (tok.type === "cite") {
+      tok.ids.forEach((id) => {
+        if (sourceById[id]) {
+          nodes.push(
+            <CitationChip
+              key={`${prefix}-c${id}`}
+              source={sourceById[id]}
+              onSeekToMs={onSeekToMs}
+            />
+          );
+        }
+      });
+    } else {
+      renderInline(tok.value).forEach((n) =>
+        nodes.push(<span key={`${prefix}-i${ki++}`}>{n}</span>)
+      );
+    }
+  });
+  return nodes;
+}
+
+function AnswerContent({ content, sources, onSeekToMs }) {
+  const sourceById = {};
+  (sources || []).forEach((s) => {
+    sourceById[s.sourceId] = s;
+  });
+
+  const cleaned = stripTrailingSources(content || "");
+  const blocks = cleaned.split(/\n{2,}/);
+
+  const hasInline =
+    (sources || []).length > 0 &&
+    (sources || []).some((s) => cleaned.includes(`[Source ${s.sourceId}`));
+
+  return (
+    <div className="space-y-1">
+      {blocks.map((block, bi) => {
+        const lines = block.split("\n");
+        const isBullet =
+          lines.length > 0 && lines.every((l) => /^\s*[*-]\s+/.test(l));
+        const isNumbered =
+          lines.length > 0 && lines.every((l) => /^\s*\d+\.\s+/.test(l));
+
+        if (isBullet) {
+          return (
+            <ul key={bi} className="list-disc pl-5 space-y-1 my-1">
+              {lines
+                .filter((l) => l.trim())
+                .map((l, i) => (
+                  <li key={i}>
+                    {renderBlockContent(
+                      l.replace(/^\s*[*-]\s+/, ""),
+                      sourceById,
+                      onSeekToMs,
+                      `b${bi}-${i}`
+                    )}
+                  </li>
+                ))}
+            </ul>
+          );
+        }
+
+        if (isNumbered) {
+          return (
+            <ol key={bi} className="list-decimal pl-5 space-y-1 my-1">
+              {lines
+                .filter((l) => l.trim())
+                .map((l, i) => (
+                  <li key={i}>
+                    {renderBlockContent(
+                      l.replace(/^\s*\d+\.\s+/, ""),
+                      sourceById,
+                      onSeekToMs,
+                      `n${bi}-${i}`
+                    )}
+                  </li>
+                ))}
+            </ol>
+          );
+        }
+
+        return (
+          <p key={bi} className="whitespace-pre-line my-1">
+            {renderBlockContent(block, sourceById, onSeekToMs, `p${bi}`)}
+          </p>
+        );
+      })}
+
+      {!hasInline && (sources || []).length > 0 && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1">
+            Sources
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {sources.map((s) => (
+              <CitationChip
+                key={`fallback-${s.sourceId}`}
+                source={s}
+                onSeekToMs={onSeekToMs}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const VideoChatBody = ({ videoId, onSeekToMs }) => {
+  const [messages, setMessages] = useState([]);
+  const [inputVal, setInputVal] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    const question = inputVal.trim();
+    if (!question || isLoading) return;
+
+    setInputVal("");
+    setMessages((prev) => [...prev, { role: "user", content: question }]);
+    setIsLoading(true);
+
+    try {
+      const aiMessageId = Date.now();
+      setMessages((prev) => [
+        ...prev,
+        { id: aiMessageId, role: "ai", content: "" },
+      ]);
+
+      const baseURL = axiosInstance.defaults.baseURL || "/api/v1";
+      const url = `${baseURL}/embeddings/answer`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ videoId, question }),
+        signal: new AbortController().signal,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get response");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let aiContent = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const events = chunk.split("\n\n");
+
+        for (const eventStr of events) {
+          if (!eventStr.trim()) continue;
+          const lines = eventStr.split("\n");
+          let eventType = "message";
+          let eventData = "";
+
+          for (const line of lines) {
+            if (line.startsWith("event:")) {
+              eventType = line.replace("event:", "").trim();
+            } else if (line.startsWith("data:")) {
+              eventData = line.replace("data:", "").trim();
+            }
+          }
+
+          if (eventType === "token") {
+            try {
+              const parsed = JSON.parse(eventData);
+              aiContent += parsed.text;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === aiMessageId ? { ...m, content: aiContent } : m
+                )
+              );
+            } catch (e) {
+              // ignore parse errors for partial chunks
+            }
+          } else if (eventType === "done") {
+            try {
+              const parsed = JSON.parse(eventData);
+              const doneSources = Array.isArray(parsed?.sources)
+                ? parsed.sources
+                : [];
+              if (doneSources.length > 0) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiMessageId ? { ...m, sources: doneSources } : m
+                  )
+                );
+              }
+            } catch (_) {
+              // ignore parse errors for partial chunks
+            }
+            break;
+          } else if (eventType === "error") {
+            throw new Error("Stream error");
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+      setMessages((prev) => [
+        ...prev,
+        { role: "ai", content: "Sorry, something went wrong. Please try again." },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isNotCovered = (content) => {
+    return (
+      content.includes("I couldn't find a relevant answer in this video's transcript") ||
+      content.includes("I couldn't find enough information in this video to answer that")
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div ref={scrollRef} className="no-scrollbar flex-1 overflow-y-auto p-4 space-y-4 bg-[#fcf8f8]">
+        {messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3 p-6 text-center">
+            <span className="w-16 h-16 bg-[#f3e7e8] rounded-full flex items-center justify-center shadow-sm">
+              <Bot className="w-8 h-8 text-[#994d51]" />
+            </span>
+            <p className="font-medium text-lg text-[#1b0e0e]">Have any Questions?</p>
+            <p className="text-sm">Get grounded, cited answers with one-click access to the exact moment in the video.</p>
+          </div>
+        ) : (
+          messages.map((msg, idx) => (
+            <div
+              key={msg.id || idx}
+              className={`flex w-full ${
+                msg.role === "user" ? "justify-end" : "justify-start"
+              }`}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                  msg.role === "user"
+                    ? "bg-[#994d51] text-white rounded-br-sm shadow-sm"
+                    : isNotCovered(msg.content)
+                    ? "bg-orange-100 text-orange-800 border border-orange-200"
+                    : "bg-[#f3e7e8] text-[#1b0e0e] rounded-bl-sm shadow-sm"
+                }`}
+              >
+                {msg.role === "ai" && isNotCovered(msg.content) ? (
+                  <div className="flex flex-col items-center justify-center py-2 space-y-2 text-center">
+                    <SearchX className="w-7 h-7" />
+                    <p className="font-medium">Not covered in this video</p>
+                    <p className="text-xs opacity-80">Try rephrasing the question.</p>
+                  </div>
+                ) : msg.role === "ai" ? (
+                  <>
+                    <AnswerContent
+                      content={msg.content}
+                      sources={msg.sources}
+                      onSeekToMs={onSeekToMs}
+                    />
+                    {!msg.content && isLoading && (
+                      <span className="animate-pulse">...</span>
+                    )}
+                  </>
+                ) : (
+                  msg.content
+                )}
+              </div>
+            </div>
+          ))
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="p-4 bg-white border-t border-slate-200 sticky bottom-0 z-10 rounded-b-2xl">
+        <form onSubmit={handleSend} className="flex gap-2">
+          <input
+            type="text"
+            value={inputVal}
+            onChange={(e) => setInputVal(e.target.value)}
+            placeholder="Ask a question..."
+            className="flex-1 border border-slate-300 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 focus:border-transparent bg-slate-50"
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            disabled={!inputVal.trim() || isLoading}
+            className="bg-[#994d51] text-white rounded-full px-4 py-2.5 text-sm font-medium hover:bg-[#7a3d41] disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 shadow-sm flex items-center gap-1.5"
+          >
+            <Send className="w-4 h-4" />
+            Send
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default VideoChatBody;

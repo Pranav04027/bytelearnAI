@@ -38,9 +38,16 @@ instance.interceptors.response.use(
     if (status !== 401) {
       try {
         // Only surface server-provided messages. Skip raw internal/network
-        // errors (e.g. TypeErrors) which would expose ugly technical text.
+        // errors (e.g. TypeErrors) or technical stack-like text which would
+        // expose ugly messages such as
+        // "Cannot read properties of undefined (reading 'refreshToken')".
         const msg = error.response?.data?.message;
-        if (msg) {
+        const isTechnical =
+          msg &&
+          /\b(cannot read|reading ['"][^'"]+['"]|properties of (undefined|null)|is not (a function|defined|iterable))\b/i.test(
+            msg
+          );
+        if (msg && !isTechnical) {
           emit("toast", { type: "error", message: msg });
         }
       } catch (_) {}

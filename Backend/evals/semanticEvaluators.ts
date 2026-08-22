@@ -1,4 +1,3 @@
-ls
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { createLLMAsJudge } from "openevals";
 import { ABSTENTION_RESPONSE } from "../src/services/ragAnswerService.js";

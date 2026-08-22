@@ -11,6 +11,7 @@ import { updateVideoProgress } from "../../api/progress.js";
 import { ensureHMS } from "../../utils/time.js";
 import VideoComments from "../Comments/VideoComments.jsx";
 import VideoChatDrawer from "../../components/VideoChatDrawer.jsx";
+import VideoChatPanel from "../../components/VideoChatPanel.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import axios from "../../api/axios.js";
 import { emit } from "../../utils/emitter.js";
@@ -561,9 +562,10 @@ const VideoDetail = () => {
   const channelIdForTop = ownerIdForTop ? (typeof ownerIdForTop === "string" ? ownerIdForTop : String(ownerIdForTop)) : null;
 
   return (
-    <div className="max-w-[960px] mx-auto space-y-6 px-4 md:px-0">
-      <div className="bg-[#fcf8f8] rounded-lg p-4">
-        <div className="aspect-video w-full rounded-2xl overflow-hidden relative bg-[#000] shadow-lg group">
+    <div className="mx-auto max-w-[1400px] px-4 md:px-6 py-4 md:py-6">
+      <div className="lg:flex lg:gap-6 lg:items-start">
+        <div className="flex-1 min-w-0">
+          <div className="aspect-video w-full rounded-2xl overflow-hidden relative bg-[#000] shadow-lg group">
           <video
             ref={videoRef}
             src={video.videofile}
@@ -601,91 +603,94 @@ const VideoDetail = () => {
             </div>
           )}
         </div>
-        <h1 className="mt-5 px-4 text-[22px] font-bold leading-tight tracking-[-0.015em] text-[#1b0e0e]">{video.title}</h1>
-        <p className="px-4 pt-1 pb-3 text-sm text-[#994d51]">
-          {`${typeof views === "number" ? views.toLocaleString() + " views" : "— views"} · ${video.timeAgo || ""} ${video.timeAgo ? "· " : ""}Category: ${video.category || "—"} · Difficulty: ${video.difficulty || "—"} · Duration: ${ensureHMS(video.duration)} · ${video.isPublished ? "Published" : "Draft"}`}
-        </p>
 
-        <div className="@container">
-          <div className="px-4 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200">
-            {/* Left side: Minimalist row for Like, Bookmark, Playlist */}
-            <div className="flex items-center gap-6">
-              <button onClick={onToggleLike} disabled={liking} className="flex items-center gap-2 text-slate-700 hover:text-[#994d51] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 rounded-lg px-2 py-1 -ml-2">
-                <ThumbsUp className={`w-5 h-5 ${isLiked ? 'fill-current text-[#994d51]' : ''}`} />
-                <span className="text-sm font-medium">{isLiked ? "Unlike" : "Like"} • {typeof likeCount === 'number' ? likeCount : 0}</span>
-              </button>
-              <button onClick={onToggleBookmark} className="flex items-center gap-2 text-slate-700 hover:text-[#994d51] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 rounded-lg px-2 py-1">
-                <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-current text-[#994d51]' : ''}`} />
-                <span className="text-sm font-medium">{isBookmarked ? "Bookmarked" : "Bookmark"}</span>
-              </button>
-              <button onClick={openPlaylistModal} className="flex items-center gap-2 text-slate-700 hover:text-[#994d51] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 rounded-lg px-2 py-1">
-                <PlusSquare className="w-5 h-5" />
-                <span className="text-sm font-medium">Save</span>
-              </button>
-            </div>
+        {/* Lesson info */}
+        <div className="mt-5">
+          <h1 className="text-[22px] font-bold leading-tight tracking-[-0.015em] text-[#1b0e0e]">{video.title}</h1>
+          <p className="mt-1 text-sm text-[#994d51]">
+            {`${typeof views === "number" ? views.toLocaleString() + " views" : "— views"} · ${video.timeAgo || ""} ${video.timeAgo ? "· " : ""}Category: ${video.category || "—"} · Difficulty: ${video.difficulty || "—"} · Duration: ${ensureHMS(video.duration)} · ${video.isPublished ? "Published" : "Draft"}`}
+          </p>
 
-            {/* Right side: AI Actions */}
-            <div className="flex items-center gap-3">
-            {(() => {
-              const status = video.transcription?.status;
-              
-              if (status === "PENDING" || status === "PROCESSING") {
-                return (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-indigo-100 bg-indigo-50/50">
-                    <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
-                    <p className="text-indigo-800 text-sm font-medium">Transcribing...</p>
-                  </div>
-                );
-              }
-              
-              if (status === "TRANSCRIBED") {
-                return (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-100 bg-purple-50/50">
-                    <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
-                    <p className="text-purple-800 text-sm font-medium">Generating AI...</p>
-                  </div>
-                );
-              }
-              
-              if (status === "FAILED") {
-                return (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-100 bg-red-50/50">
-                    <AlertCircle className="w-4 h-4 text-red-600" />
-                    <p className="text-red-600 text-sm font-medium">AI Failed</p>
-                  </div>
-                );
-              }
-              
-              if (status === "READY") {
-                return (
-                  <>
-                    <button
-                      onClick={handleQuizAction}
-                      disabled={quizActionLoading}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-60 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                    >
-                      <BrainCircuit className="w-4 h-4" />
-                      {quizActionLoading ? "Preparing..." : quizExists ? "Attempt Quiz" : "Create Quiz"}
-                    </button>
-                    <button
-                      onClick={() => setIsChatDrawerOpen(true)}
-                      className="flex items-center gap-2 bg-[#994d51] text-white px-6 py-2.5 rounded-lg font-bold text-sm shadow-sm hover:bg-[#7a3d41] transition-all focus:ring-2 focus:ring-[#994d51]/50 focus:outline-none"
-                    >
-                      <Sparkles className="w-5 h-5" />
-                      Ask the Video
-                    </button>
-                  </>
-                );
-              }
-              
-              return null;
-            })()}
+          <div className="@container mt-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              {/* Left side: Minimalist row for Like, Bookmark, Playlist */}
+              <div className="flex items-center gap-6">
+                <button onClick={onToggleLike} disabled={liking} className="flex items-center gap-2 text-slate-700 hover:text-[#994d51] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 rounded-lg px-2 py-1 -ml-2">
+                  <ThumbsUp className={`w-5 h-5 ${isLiked ? 'fill-current text-[#994d51]' : ''}`} />
+                  <span className="text-sm font-medium">{isLiked ? "Unlike" : "Like"} • {typeof likeCount === 'number' ? likeCount : 0}</span>
+                </button>
+                <button onClick={onToggleBookmark} className="flex items-center gap-2 text-slate-700 hover:text-[#994d51] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 rounded-lg px-2 py-1">
+                  <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-current text-[#994d51]' : ''}`} />
+                  <span className="text-sm font-medium">{isBookmarked ? "Bookmarked" : "Bookmark"}</span>
+                </button>
+                <button onClick={openPlaylistModal} className="flex items-center gap-2 text-slate-700 hover:text-[#994d51] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 rounded-lg px-2 py-1">
+                  <PlusSquare className="w-5 h-5" />
+                  <span className="text-sm font-medium">Save</span>
+                </button>
+              </div>
+
+              {/* Right side: AI Actions */}
+              <div className="flex items-center gap-3">
+              {(() => {
+                const status = video.transcription?.status;
+                
+                if (status === "PENDING" || status === "PROCESSING") {
+                  return (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-indigo-100 bg-indigo-50/50">
+                      <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                      <p className="text-indigo-800 text-sm font-medium">Transcribing...</p>
+                    </div>
+                  );
+                }
+                
+                if (status === "TRANSCRIBED") {
+                  return (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-100 bg-purple-50/50">
+                      <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
+                      <p className="text-purple-800 text-sm font-medium">Generating AI...</p>
+                    </div>
+                  );
+                }
+                
+                if (status === "FAILED") {
+                  return (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-100 bg-red-50/50">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      <p className="text-red-600 text-sm font-medium">AI Failed</p>
+                    </div>
+                  );
+                }
+                
+                if (status === "READY") {
+                  return (
+                    <>
+                      <button
+                        onClick={handleQuizAction}
+                        disabled={quizActionLoading}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-60 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                      >
+                        <BrainCircuit className="w-4 h-4" />
+                        {quizActionLoading ? "Preparing..." : quizExists ? "Attempt Quiz" : "Create Quiz"}
+                      </button>
+                      <button
+                        onClick={() => setIsChatDrawerOpen(true)}
+                        className="flex items-center gap-2 bg-[#994d51] text-white px-6 py-2.5 rounded-lg font-bold text-sm shadow-sm hover:bg-[#7a3d41] transition-all focus:ring-2 focus:ring-[#994d51]/50 focus:outline-none lg:hidden"
+                      >
+                        <Sparkles className="w-5 h-5" />
+                        Ask the Video
+                      </button>
+                    </>
+                  );
+                }
+                
+                return null;
+              })()}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="bg-[#fcf8f8] rounded-lg p-4">
+      <div className="mt-6 bg-[#fcf8f8] rounded-lg p-4">
         <h2 className="text-lg font-bold text-[#1b0e0e] mb-2 px-1">Instructor:</h2>
         {(() => {
           const ownerId =
@@ -738,10 +743,21 @@ const VideoDetail = () => {
         })()}
       </div>
 
-      <div className="bg-[#fcf8f8] rounded-lg p-4">
+      <div className="mt-6 bg-[#fcf8f8] rounded-lg p-4">
         <h3 className="text-[#1b0e0e] text-lg font-bold leading-tight tracking-[-0.015em] mb-2">Comments</h3>
         <VideoComments videoId={id} currentUserId={user?._id} onTotalChange={onTotalCommentsChange} />
       </div>
+        </div>
+
+        <aside className="hidden lg:block lg:w-[380px] lg:shrink-0 lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
+          <VideoChatPanel
+            videoId={id}
+            status={video?.transcription?.status}
+            onSeekToMs={handleSeekToMs}
+          />
+        </aside>
+      </div>
+
       {showPlaylistModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white w-full max-w-md rounded-lg shadow-lg p-4">

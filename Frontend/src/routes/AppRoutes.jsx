@@ -1,5 +1,6 @@
 
-import { Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import ProtectedRoute from "../components/ProtectedRoute.jsx";
 import RoleRoute from "../components/RoleRoute.jsx";
@@ -33,9 +34,21 @@ import TakeQuiz from "../pages/Quizzes/TakeQuiz.jsx";
 import NotFound from "../pages/NotFound.jsx";
 import Search from "../pages/Search/Search.jsx";
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [pathname]);
+  return null;
+};
+
 const AppRoutes = () => {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<VideoList />} />
         <Route path="login" element={<Login />} />
@@ -210,6 +223,7 @@ const AppRoutes = () => {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+    </>
   );
 };
 

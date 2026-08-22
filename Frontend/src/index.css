@@ -19,6 +19,26 @@ body {
   color: #1b0e0e;
 }
 
+/* Reusable utility: visually hide scrollbar while preserving scrolling.
+   Apply to page scroller and internal scroll regions (e.g. RAG chat). */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE / old Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* WebKit (Chrome, Safari, Edge) */
+}
+
+/* Primary page scroller: keep scrolling, hide the scrollbar */
+html,
+body {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
 /* Subtle global zoom-out: scale rem-based sizes slightly smaller */
 html {
   font-size: 15px; /* default 16px -> ~6% smaller for a tasteful zoom-out */
