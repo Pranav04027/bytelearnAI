@@ -4,7 +4,7 @@ import { searchVideos } from "../../api/videos.js";
 import { getQuizExistsByVideoId } from "../../api/quizzes.js";
 
 const Chip = ({ children }) => (
-  <span className="inline-flex items-center gap-1 rounded-full bg-[#f3e7e8] text-[#1b0e0e] px-2 py-0.5 text-[11px] font-medium">
+  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-500 px-2 py-0.5 text-[11px] font-medium font-sans">
     {children}
   </span>
 );
@@ -25,18 +25,18 @@ const VideoCard = ({ video }) => {
   }, [video._id]);
 
   return (
-    <Link to={`/videos/${video._id}`} className="block rounded-xl bg-white/70 hover:bg-white transition shadow-sm hover:shadow-md p-3">
-      <img src={video.thumbnail} alt={video.title} className="w-full h-44 object-cover rounded-lg" />
-      <div className="mt-3 space-y-2">
+    <Link to={`/videos/${video._id}`} className="block rounded-2xl bg-white transition shadow-sm hover:shadow-md p-3">
+      <img src={video.thumbnail} alt={video.title} className="w-full h-44 object-cover rounded-xl" />
+      <div className="mt-4 space-y-2">
         <h3 className="text-[15px] font-semibold text-[#1b0e0e] leading-snug line-clamp-2">{video.title}</h3>
-        <p className="text-[12px] text-[#1b0e0e]/70 line-clamp-2">{video.description}</p>
+        <p className="text-[12px] text-slate-500 line-clamp-2 font-sans">{video.description}</p>
         <div className="flex items-center gap-2 flex-wrap">
           <Chip>{video.category}</Chip>
           <Chip>{video.difficulty}</Chip>
           {quizExists === undefined ? null : quizExists ? (
-            <span className="inline-block px-3 py-1 rounded-full text-xs bg-green-100 text-green-700 font-semibold">Quiz available</span>
+            <span className="inline-block px-3 py-1 rounded-full text-[11px] bg-green-100 text-green-700 font-semibold font-sans">Quiz available</span>
           ) : (
-            <span className="inline-block px-3 py-1 rounded-full text-xs bg-[#f3e7e8] text-[#1b0e0e]">No quiz</span>
+            <span className="inline-block px-3 py-1 rounded-full text-[11px] bg-slate-100 text-slate-500 font-sans">No quiz</span>
           )}
         </div>
       </div>
@@ -106,7 +106,7 @@ const VideoList = () => {
         )}
 
         {!loading && !error && videos.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mt-6">
             {videos.map((v) => (
               <VideoCard key={v._id} video={v} />
             ))}

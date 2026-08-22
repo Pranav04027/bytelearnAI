@@ -37,8 +37,12 @@ instance.interceptors.response.use(
     // Only handle 401
     if (status !== 401) {
       try {
-        const msg = error.response?.data?.message || error.message || "Request failed";
-        emit("toast", { type: "error", message: msg });
+        // Only surface server-provided messages. Skip raw internal/network
+        // errors (e.g. TypeErrors) which would expose ugly technical text.
+        const msg = error.response?.data?.message;
+        if (msg) {
+          emit("toast", { type: "error", message: msg });
+        }
       } catch (_) {}
       return Promise.reject(error);
     }
@@ -80,8 +84,7 @@ instance.interceptors.response.use(
       pendingRequests = [];
       // Let caller handle (e.g., UI shows logged-out state)
       try {
-        const msg = refreshErr.response?.data?.message || refreshErr.message || "Authentication required";
-        emit("toast", { type: "error", message: msg });
+        emit("toast", { type: "info", message: "Please login to access full features of ByteLearn" });
       } catch (_) {}
       return Promise.reject(refreshErr);
     }

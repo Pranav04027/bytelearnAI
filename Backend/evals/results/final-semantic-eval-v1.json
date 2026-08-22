@@ -1,0 +1,835 @@
+{
+  "metadata": {
+    "name": "ByteLearn Final Offline Semantic Evaluation",
+    "evalVersion": "final-semantic-v1",
+    "k": 5,
+    "generatedAt": "2026-08-19T16:46:10.121Z",
+    "retrievalMode": "hybrid-rrf",
+    "judge": {
+      "provider": "google",
+      "model": "gemini-2.5-flash",
+      "temperature": 0,
+      "scoring": "continuous [0,1]; >=0.5 = pass"
+    },
+    "evaluatorSpecs": {
+      "correctness": {
+        "name": "answer correctness",
+        "type": "llm_judge",
+        "judgeModel": "google:gemini-2.5-flash",
+        "temperature": 0,
+        "scoring": "continuous [0,1]; >=0.5 = pass",
+        "rubric": "Compare generated answer to reference answer + required facts. Pass if key facts are accurate and no incorrect facts are stated."
+      },
+      "groundedness": {
+        "name": "groundedness / faithfulness",
+        "type": "llm_judge",
+        "judgeModel": "google:gemini-2.5-flash",
+        "temperature": 0,
+        "scoring": "continuous [0,1]; >=0.5 = pass",
+        "rubric": "Every factual claim in the answer must be supported by the supplied transcript context. Memory/general knowledge do not count. Pass if fully grounded."
+      },
+      "citationSupport": {
+        "name": "citation support",
+        "type": "llm_judge",
+        "judgeModel": "google:gemini-2.5-flash",
+        "temperature": 0,
+        "scoring": "continuous [0,1]; >=0.5 = pass",
+        "rubric": "Each cited [Source N] must genuinely support the claim it backs. Pass only if all cited sources support their claims."
+      },
+      "abstentionAccuracy": {
+        "name": "abstention accuracy",
+        "type": "deterministic",
+        "scoring": "binary; answerable should answer, unanswerable should abstain",
+        "rubric": "Use the gold answerable/unanswerable label. Answerable example that abstained = failure; unanswerable example that answered = failure."
+      },
+      "invalidCitationCheck": {
+        "name": "invalid citation number/id check",
+        "type": "deterministic",
+        "scoring": "binary; any cited id outside [1..retrievedCount] = failure",
+        "rubric": "Detect cited [Source N] where N is non-integer or exceeds the number of retrieved chunks (impossible/missing source)."
+      }
+    },
+    "totalGoldExamples": 61,
+    "answerableExamples": 53,
+    "unanswerableExamples": 8,
+    "completedExamples": 6,
+    "requestDelayMs": 2000,
+    "complete": false,
+    "notes": "Evaluates current production Hybrid + Grounded RAG. Semantic judges use openevals LLM-as-judge on Gemini. Retrieval metrics reuse existing deterministic definitions. Gold dataset unchanged."
+  },
+  "overall": {
+    "retrieval": {
+      "hitAt5": 1,
+      "recallAt5": 1,
+      "precisionAt5": 0.36,
+      "mrrAt5": 1,
+      "timestampCoverageAt5": 1,
+      "evaluatedExamples": 5
+    },
+    "correctness": {
+      "meanScore": 1,
+      "passRate": 1,
+      "evaluatedExamples": 5
+    },
+    "groundedness": {
+      "meanScore": 1,
+      "passRate": 1,
+      "evaluatedExamples": 5
+    },
+    "citationSupport": {
+      "meanScore": 1,
+      "passRate": 1,
+      "evaluatedExamples": 5
+    },
+    "abstentionAccuracy": {
+      "passRate": 1,
+      "evaluatedExamples": 6
+    },
+    "invalidCitationExamples": 0
+  },
+  "byCategory": {
+    "exact_term": {
+      "retrieval": {
+        "hitAt5": 1,
+        "recallAt5": 1,
+        "precisionAt5": 0.4,
+        "mrrAt5": 1,
+        "timestampCoverageAt5": 1,
+        "evaluatedExamples": 1
+      },
+      "correctness": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "groundedness": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "citationSupport": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "abstentionAccuracy": {
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "invalidCitationExamples": 0
+    },
+    "direct": {
+      "retrieval": {
+        "hitAt5": 1,
+        "recallAt5": 1,
+        "precisionAt5": 0.4,
+        "mrrAt5": 1,
+        "timestampCoverageAt5": 1,
+        "evaluatedExamples": 1
+      },
+      "correctness": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "groundedness": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "citationSupport": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "abstentionAccuracy": {
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "invalidCitationExamples": 0
+    },
+    "paraphrase": {
+      "retrieval": {
+        "hitAt5": 1,
+        "recallAt5": 1,
+        "precisionAt5": 0.2,
+        "mrrAt5": 1,
+        "timestampCoverageAt5": 1,
+        "evaluatedExamples": 2
+      },
+      "correctness": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 2
+      },
+      "groundedness": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 2
+      },
+      "citationSupport": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 2
+      },
+      "abstentionAccuracy": {
+        "passRate": 1,
+        "evaluatedExamples": 2
+      },
+      "invalidCitationExamples": 0
+    },
+    "multi_evidence": {
+      "retrieval": {
+        "hitAt5": 1,
+        "recallAt5": 1,
+        "precisionAt5": 0.6,
+        "mrrAt5": 1,
+        "timestampCoverageAt5": 1,
+        "evaluatedExamples": 1
+      },
+      "correctness": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "groundedness": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "citationSupport": {
+        "meanScore": 1,
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "abstentionAccuracy": {
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "invalidCitationExamples": 0
+    },
+    "unanswerable": {
+      "retrieval": {
+        "hitAt5": 0,
+        "recallAt5": 0,
+        "precisionAt5": 0,
+        "mrrAt5": 0,
+        "timestampCoverageAt5": 0,
+        "evaluatedExamples": 0
+      },
+      "correctness": {
+        "meanScore": 0,
+        "passRate": 0,
+        "evaluatedExamples": 0
+      },
+      "groundedness": {
+        "meanScore": 0,
+        "passRate": 0,
+        "evaluatedExamples": 0
+      },
+      "citationSupport": {
+        "meanScore": 0,
+        "passRate": 0,
+        "evaluatedExamples": 0
+      },
+      "abstentionAccuracy": {
+        "passRate": 1,
+        "evaluatedExamples": 1
+      },
+      "invalidCitationExamples": 0
+    }
+  },
+  "examples": [
+    {
+      "id": "matplotlib-sims-exact_term-001",
+      "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+      "category": "exact_term",
+      "question": "Which Python module does the instructor use to compute the average and the standard deviation of all the simulation balances?",
+      "answerable": true,
+      "retrievedCount": 5,
+      "retrieved": [
+        {
+          "rank": 1,
+          "id": "5eb63a0c-526a-4454-825e-8955229c0edc",
+          "chunkIndex": 39,
+          "startMs": 1145630,
+          "endMs": 1177080,
+          "similarity": 0.834391238140907,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03278688524590164,
+          "content": "It has functions such as mean and STDV for standard deviation to calculate the overall mean and standard deviation of a list. The larger the standard deviation, the more volatile our investment is. So, we can modify our code to import the statistics module, and then at the end of the program, we print out the average and the standard deviation from all of our runs. If we run this code, we see that we get a pretty high balance, and we also get a pretty big standard deviation."
+        },
+        {
+          "rank": 2,
+          "id": "1dcd72f8-6978-4f0f-9ed8-18d67d0c6fc0",
+          "chunkIndex": 43,
+          "startMs": 1252340,
+          "endMs": 1278270,
+          "similarity": 0.717870028238798,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.031009615384615385,
+          "content": "We keep balanced stocks for stocks and balanced bonds for bonds, and we keep separate lists of final balances for each as well. We update each one using the appropriate change and balance function. At the end, we'll compute the mean and standard deviation for each of them separately, and we can show a histogram of these two options together in one plot. The way we do that is to make a list of the two lists and send that as a parameter."
+        },
+        {
+          "rank": 3,
+          "id": "09e0dae0-fefa-423d-ab38-b82409207619",
+          "chunkIndex": 38,
+          "startMs": 1121570,
+          "endMs": 1145270,
+          "similarity": 0.830139725285469,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.0304147465437788,
+          "content": "If we run this code, we'll see a pretty wide range of outcomes from ones where we actually lose a little money to ones where we make more than 10 times what we started with. Let's say that we want to understand that overall performance. We can compute some basic statistics on the final balances to help with this. We can use the statistics module that's part of the Python Standard Library."
+        },
+        {
+          "rank": 4,
+          "id": "cd75f82e-a2d7-45d8-9022-03e71b8efc13",
+          "chunkIndex": 42,
+          "startMs": 1230400,
+          "endMs": 1252080,
+          "similarity": null,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.016129032258064516,
+          "content": "Next, we create a 2nd function to compute the increase in balance for bonds, and we rename the one for stocks so that they're clearly different. So change in balance stocks will compute the change in balance assuming a stock account, and change in balance bonds will compute the change in balance assuming a bond account. We'll basically keep track of everything else in pairs."
+        },
+        {
+          "rank": 5,
+          "id": "a05ff546-cb7a-4093-b45b-c76be76fefba",
+          "chunkIndex": 33,
+          "startMs": 971780,
+          "endMs": 996790,
+          "similarity": null,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.015873015873015872,
+          "content": "We still start with our function that computes the change in balance. We'll then have a loop for however many simulations we need. In each of them we'll start at times zero and with a balance of $1000 and we'll simulate for a few years just like before. We'll store the final balance into the final balance's array. After this leap, we can print out all the final balances found."
+        }
+      ],
+      "retrievalMetrics": {
+        "hitAt5": true,
+        "recallAt5": 1,
+        "precisionAt5": 0.4,
+        "reciprocalRankAt5": 1,
+        "timestampCoverageAt5": 1
+      },
+      "generatedAnswer": "The instructor uses the `statistics` module from the Python Standard Library to compute the average and standard deviation of the simulation balances [Source 1, Source 3].",
+      "generationError": null,
+      "abstained": false,
+      "abstentionResult": {
+        "pass": true,
+        "expectedAnswerable": true,
+        "actualAbstained": false
+      },
+      "citedSourceIds": [
+        1,
+        3
+      ],
+      "invalidCitationIds": [],
+      "correctness": {
+        "score": 1,
+        "comment": "The generated answer correctly identifies the 'statistics' module as used by the instructor to compute the average (mean) and standard deviation of the simulation balances, which fully aligns with the reference answer and the required facts. The additional detail 'from the Python Standard Library' is accurate and does not introduce any incorrect information.",
+        "ran": true
+      },
+      "groundedness": {
+        "score": 1,
+        "comment": "The answer correctly identifies the `statistics` module as the one used by the instructor to compute the average and standard deviation. Source 1 explicitly states, \"we can modify our code to import the statistics module, and then at the end of the program, we print out the average and the standard deviation from all of our runs.\" Source 3 further confirms this by stating, \"We can use the statistics module that's part of the Python Standard Library.\" All claims are directly supported by the provided transcript context. Thus, the score should be: 1.0.",
+        "ran": true
+      },
+      "citationSupport": {
+        "score": 1,
+        "comment": "Both Source 1 and Source 3 explicitly state that the `statistics` module is used to compute the average (mean) and standard deviation of the simulation balances. Source 1 mentions importing the statistics module to print out the average and standard deviation, and Source 3 confirms the use of the statistics module from the Python Standard Library for computing basic statistics on final balances. Thus, the score should be: 1.0.",
+        "ran": true
+      }
+    },
+    {
+      "id": "matplotlib-sims-direct-001",
+      "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+      "category": "direct",
+      "question": "What is the purpose of the 'change in balance' function the instructor refactors out of the simulation loop?",
+      "answerable": true,
+      "retrievedCount": 5,
+      "retrieved": [
+        {
+          "rank": 1,
+          "id": "3f5a5883-1621-4841-ba36-2201034bf10f",
+          "chunkIndex": 28,
+          "startMs": 830020,
+          "endMs": 851890,
+          "similarity": 0.844503174139483,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03278688524590164,
+          "content": "So we'll create a function change in balance that takes in the current balance as a parameter and returns how much it changes one year later. In the earlier case, we had a 3% interest rate, so the change in balance is 3% of the original balance. In our simulation loop, each iteration of the loop increases the balance by changing balance."
+        },
+        {
+          "rank": 2,
+          "id": "cd75f82e-a2d7-45d8-9022-03e71b8efc13",
+          "chunkIndex": 42,
+          "startMs": 1230400,
+          "endMs": 1252080,
+          "similarity": 0.751699491531934,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.031754032258064516,
+          "content": "Next, we create a 2nd function to compute the increase in balance for bonds, and we rename the one for stocks so that they're clearly different. So change in balance stocks will compute the change in balance assuming a stock account, and change in balance bonds will compute the change in balance assuming a bond account. We'll basically keep track of everything else in pairs."
+        },
+        {
+          "rank": 3,
+          "id": "a05ff546-cb7a-4093-b45b-c76be76fefba",
+          "chunkIndex": 33,
+          "startMs": 971780,
+          "endMs": 996790,
+          "similarity": 0.744324299616326,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03125763125763126,
+          "content": "We still start with our function that computes the change in balance. We'll then have a loop for however many simulations we need. In each of them we'll start at times zero and with a balance of $1000 and we'll simulate for a few years just like before. We'll store the final balance into the final balance's array. After this leap, we can print out all the final balances found."
+        },
+        {
+          "rank": 4,
+          "id": "03056325-6e3b-46f3-81ef-d2ee14e6d691",
+          "chunkIndex": 36,
+          "startMs": 1056290,
+          "endMs": 1087740,
+          "similarity": 0.775920079791248,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.030834914611005692,
+          "content": "Well, you'd want to change your random function. In this case, we could use the Gauss or the normal variant function in the random library to create this distribution. In this case, I used Gauss, which is short for Gaussian, the normal bell curve distribution that we're familiar with. Because we've separated out the change in balance routine, it's easy to change to a different model where we calculate the change by some other mechanism. Say for example, that we wanted to stimulate a stock fund."
+        },
+        {
+          "rank": 5,
+          "id": "200919ee-5503-489a-ba6d-08373015dab5",
+          "chunkIndex": 27,
+          "startMs": 803360,
+          "endMs": 829010,
+          "similarity": 0.752896033506961,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.030158730158730156,
+          "content": "Let's start with our previous example where we examined the growth in a certificate of deposit over a period of time. We can modify the code from that simulation to handle more general investments. We're going to start by changing the way we compute the change per year. We're going to follow the principle of abstraction to make a separate function that will calculate how the investment will increase or decrease in any particular year."
+        }
+      ],
+      "retrievalMetrics": {
+        "hitAt5": true,
+        "recallAt5": 1,
+        "precisionAt5": 0.4,
+        "reciprocalRankAt5": 1,
+        "timestampCoverageAt5": 1
+      },
+      "generatedAnswer": "The 'change in balance' function is created to calculate how an investment will increase or decrease in any particular year [Source 5]. It takes the current balance as input and returns the change in balance one year later [Source 1].\n\nThis function helps in:\n1.  **Abstraction:** It separates the calculation of the change per year from the main simulation loop, making the code more organized [Source 5].\n2.  **Flexibility:** Because the \"change in balance\" logic is in its own routine, it's easy to change to a different model for calculating the change [Source 4]. For example, you could have separate functions for stocks and bonds to compute their respective changes in balance [Source 2].\n3.  **Simulation Loop Operation:** In the simulation loop, each iteration increases the balance by the amount returned by the 'change in balance' function [Source 1].",
+      "generationError": null,
+      "abstained": false,
+      "abstentionResult": {
+        "pass": true,
+        "expectedAnswerable": true,
+        "actualAbstained": false
+      },
+      "citedSourceIds": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "invalidCitationIds": [],
+      "correctness": {
+        "score": 1,
+        "comment": "The generated answer accurately states that the 'change in balance' function takes the current balance as input and returns the change in balance one year later. It also correctly explains that the simulation loop uses this function to increase the balance in each iteration. The additional points about abstraction and flexibility, while not explicitly required, are correct and relevant. Thus, the score should be: 1.0.",
+        "ran": true
+      },
+      "groundedness": {
+        "score": 1,
+        "comment": "Every factual claim in the answer is directly supported by the provided transcript context. The answer accurately identifies the purpose of the function, its inputs and outputs, and the benefits of refactoring it, with correct source citations for each point. Thus, the score should be: 1.0.",
+        "ran": true
+      },
+      "citationSupport": {
+        "score": 1,
+        "comment": "All claims made in the answer are directly supported by the cited sources. Each source provides clear evidence for the statement it is attached to. For example, Source 5 explicitly states the function calculates how an investment will increase or decrease and mentions abstraction. Source 1 confirms it takes current balance and returns the change one year later, and how it's used in the loop. Source 4 directly supports the flexibility aspect, and Source 2 provides a concrete example of this flexibility with stocks and bonds. Thus, the score should be: 1.0.",
+        "ran": true
+      }
+    },
+    {
+      "id": "matplotlib-sims-paraphrase-001",
+      "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+      "category": "paraphrase",
+      "question": "Why can't a guaranteed investment like a certificate of deposit demonstrate the kind of randomness the instructor adds to the model?",
+      "answerable": true,
+      "retrievedCount": 5,
+      "retrieved": [
+        {
+          "rank": 1,
+          "id": "bbfd1294-b17c-499e-b301-fea2584ee035",
+          "chunkIndex": 29,
+          "startMs": 853360,
+          "endMs": 877170,
+          "similarity": 0.792913488788617,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03278688524590164,
+          "content": "Now unless we have some guaranteed investment like a certificate of deposit, the amount that the investment increases or decreases will change itself over time. Interest rates go up and down, and for investments that are traded like stocks and mutual funds, the fluctuations can be really significant. So suppose we have an investment that we know can fluctuate, but the return will never be negative."
+        },
+        {
+          "rank": 2,
+          "id": "6ef283fe-6694-403e-ba3f-55351944920e",
+          "chunkIndex": 30,
+          "startMs": 877480,
+          "endMs": 907500,
+          "similarity": 0.707101058443948,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03200204813108039,
+          "content": "Instead of increasing our balance by 3% each year, we might change the balance by a random percentage. A simple way to do this might be to imagine that we can select a maximum level and a minimum level, and every rate in between is equally likely. We could modify our code to pick a random rate of return each year for that investment. We import the random module and then we use the uniform command to pick a random rate in between some maximum and some minimum."
+        },
+        {
+          "rank": 3,
+          "id": "03056325-6e3b-46f3-81ef-d2ee14e6d691",
+          "chunkIndex": 36,
+          "startMs": 1056290,
+          "endMs": 1087740,
+          "similarity": 0.718262813450786,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.030621785881252923,
+          "content": "Well, you'd want to change your random function. In this case, we could use the Gauss or the normal variant function in the random library to create this distribution. In this case, I used Gauss, which is short for Gaussian, the normal bell curve distribution that we're familiar with. Because we've separated out the change in balance routine, it's easy to change to a different model where we calculate the change by some other mechanism. Say for example, that we wanted to stimulate a stock fund."
+        },
+        {
+          "rank": 4,
+          "id": "a6ccfa03-b03d-40be-b7db-164682881300",
+          "chunkIndex": 35,
+          "startMs": 1024450,
+          "endMs": 1054480,
+          "similarity": 0.706852180207651,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03055037313432836,
+          "content": "Well, you can see that when we run this, we get a wide distribution of results from cases where we earned small amounts of interest to those where we earned a whole lot. Furthermore, it's a relatively simple task to make our model more realistic. Say that instead of a random percentage increase between 0 and 6, you instead wanted to pick a random percentage from a normal bell curve distribution, with an average of 3% and a standard deviation of 2%. How might you do this?"
+        },
+        {
+          "rank": 5,
+          "id": "82ba0baa-205c-410d-b11a-ce8133327542",
+          "chunkIndex": 26,
+          "startMs": 779910,
+          "endMs": 801670,
+          "similarity": 0.692108973460082,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.030536130536130537,
+          "content": "So in the rest of this lecture we're going to look at how we'd make a larger program that incorporates uncertainty and allows us to understand the range of possibilities that can occur. We're going to be looking at a simulation of finances. Now you might have seen something like this before, where you take some set of investments and you see how likely they are to meet your retirement goals."
+        }
+      ],
+      "retrievalMetrics": {
+        "hitAt5": true,
+        "recallAt5": 1,
+        "precisionAt5": 0.2,
+        "reciprocalRankAt5": 1,
+        "timestampCoverageAt5": 1
+      },
+      "generatedAnswer": "A certificate of deposit (CD) is a guaranteed investment, meaning its return doesn't fluctuate in the way that other investments do [Source 1]. The video explains that randomness is introduced by changing the investment's balance by a random percentage each year, rather than a fixed percentage [Source 2]. This randomness can be achieved by picking a random rate of return within a certain range [Source 2]. Because a CD has a guaranteed return, it doesn't exhibit this kind of fluctuating, random behavior that the instructor adds to the model.",
+      "generationError": null,
+      "abstained": false,
+      "abstentionResult": {
+        "pass": true,
+        "expectedAnswerable": true,
+        "actualAbstained": false
+      },
+      "citedSourceIds": [
+        1,
+        2
+      ],
+      "invalidCitationIds": [],
+      "correctness": {
+        "score": 1,
+        "comment": "The generated answer accurately states that a guaranteed investment like a CD is an exception because its returns do not fluctuate, which directly addresses the first required fact. It also correctly explains that the random model is designed for investments whose returns can fluctuate over time, fulfilling the second required fact. The explanation is clear and correct.",
+        "ran": true
+      },
+      "groundedness": {
+        "score": 1,
+        "comment": "The answer accurately states that a certificate of deposit (CD) is a guaranteed investment whose return does not fluctuate like other investments, which is directly supported by Source 1. It correctly explains that randomness is introduced by changing the investment's balance by a random percentage each year instead of a fixed one, and that this is achieved by picking a random rate of return within a range, both of which are supported by Source 2. The concluding statement logically connects these points, explaining why a CD's guaranteed nature means it doesn't exhibit the fluctuating, random behavior added to the model for other investments. All claims are grounded in the provided transcript context.",
+        "ran": true
+      },
+      "citationSupport": {
+        "score": 1,
+        "comment": "The answer claims that a CD is a guaranteed investment whose return doesn't fluctuate, citing Source 1. Source 1 explicitly states, \"unless we have some guaranteed investment like a certificate of deposit, the amount that the investment increases or decreases will change itself over time,\" which supports this claim. The answer then explains that randomness is introduced by changing the investment's balance by a random percentage each year, rather than a fixed percentage, and that this is achieved by picking a random rate of return within a certain range, citing Source 2. Source 2 states, \"Instead of increasing our balance by 3% each year, we might change the balance by a random percentage\" and \"We could modify our code to pick a random rate of return each year for that investment,\" which supports these claims. All claims are accurately supported by the provided sources. Thus, the score should be: 1.0.",
+        "ran": true
+      }
+    },
+    {
+      "id": "matplotlib-sims-multi_evidence-001",
+      "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+      "category": "multi_evidence",
+      "question": "How do the instructor's stock and bond accounts differ in average return and volatility, and what does the 50/50 mixed account show?",
+      "answerable": true,
+      "retrievedCount": 5,
+      "retrieved": [
+        {
+          "rank": 1,
+          "id": "e486580d-69e5-411e-84a7-805e359d48af",
+          "chunkIndex": 48,
+          "startMs": 1396870,
+          "endMs": 1421040,
+          "similarity": 0.777783948480917,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03252247488101534,
+          "content": "We can see that like we'd expect, the mixed account will be in between the stock and the bond accounts in terms of average and in terms of standard deviation. Now what I've described is a relatively simple analysis, and there are some shortcomings. For instance, I'm just using some approximate overall stock and bond performances. Particular types of stocks and bonds will perform differently."
+        },
+        {
+          "rank": 2,
+          "id": "c502de9c-28e2-402f-94ed-783b6cb46efe",
+          "chunkIndex": 46,
+          "startMs": 1332970,
+          "endMs": 1363340,
+          "similarity": 0.753357742177937,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.032018442622950824,
+          "content": "In this case, I'll assume a 50 to 50 split between stocks and bonds, so each of these will start with $500 keeping the total at $1000. Then each year we'll increase the mixed stock and the mixed bond account separately. After the new values are determined for each, we can look at the overall balance and see whether they're out of balance. We can calculate what 50% of the total was. This is the stock amount, and then the difference that we need to move from stocks to bonds or vice versa."
+        },
+        {
+          "rank": 3,
+          "id": "f7fba39f-e302-4684-a448-136aa7e10505",
+          "chunkIndex": 44,
+          "startMs": 1280110,
+          "endMs": 1309210,
+          "similarity": 0.759439124086593,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.031754032258064516,
+          "content": "Now if we run the code, we'll see a plot showing both stock performance and bond performance. We can see in the histogram that the bonds have a much narrower range of outcomes than the stocks. And if we look at the statistics that we printed out, we'll see that indeed our stock funds have a higher average final balance but also have a significantly higher standard deviation. Now, often people will not have all their money in one kind of account, like all in stocks or all in bonds."
+        },
+        {
+          "rank": 4,
+          "id": "db88f643-3616-468f-971e-f5c3d6bf70dd",
+          "chunkIndex": 40,
+          "startMs": 1178180,
+          "endMs": 1201730,
+          "similarity": 0.757345361369223,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03125763125763126,
+          "content": "The different types of accounts will tend to have different performance characteristics. Stocks will tend to fluctuate a lot in price, but they tend to do best on average. Bonds don't do as well as stocks on average, but the drops as well as the gains will tend to be smaller. Money in cash, like savings accounts, will tend to fluctuate the least, but it'll have the worst average performance."
+        },
+        {
+          "rank": 5,
+          "id": "2d58861e-3a21-4392-ba50-473b3116c662",
+          "chunkIndex": 45,
+          "startMs": 1309590,
+          "endMs": 1332020,
+          "similarity": 0.706209490173092,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03125763125763126,
+          "content": "A more common approach will be to split the savings into two groups, such as half in a stock account and half in a bond account. We can easily modify our code to see what that would look like. Here, we've created a 3rd type of account, which we'll call the mixed account. We'll keep track of two balances in each iteration, the mixed balance for stocks and the mixed balance for bonds."
+        }
+      ],
+      "retrievalMetrics": {
+        "hitAt5": true,
+        "recallAt5": 1,
+        "precisionAt5": 0.6,
+        "reciprocalRankAt5": 1,
+        "timestampCoverageAt5": 1
+      },
+      "generatedAnswer": "The stock account shows a higher average final balance and a significantly higher standard deviation compared to the bond account [Source 3]. Stocks tend to fluctuate a lot in price and do best on average, while bonds don't do as well on average, but their drops and gains tend to be smaller [Source 4]. The bond account has a much narrower range of outcomes than the stocks [Source 3].\n\nThe 50/50 mixed account, which has half the savings in a stock account and half in a bond account, will have an average return and standard deviation that falls between those of the individual stock and bond accounts [Source 1].",
+      "generationError": null,
+      "abstained": false,
+      "abstentionResult": {
+        "pass": true,
+        "expectedAnswerable": true,
+        "actualAbstained": false
+      },
+      "citedSourceIds": [
+        1,
+        3,
+        4
+      ],
+      "invalidCitationIds": [],
+      "correctness": {
+        "score": 1,
+        "comment": "The generated answer accurately addresses all the required facts. It correctly states that stocks fluctuate a lot and do best on average, have a higher average final balance and higher standard deviation. It also correctly notes that bonds have smaller gains and losses and a narrower range of outcomes. Finally, it accurately describes the 50/50 mixed account as having an average return and standard deviation that falls between those of the individual stock and bond accounts. Thus, the score should be: 1.0.",
+        "ran": true
+      },
+      "groundedness": {
+        "score": 1,
+        "comment": "Every factual claim in the answer is directly supported by the provided transcript context. The answer accurately describes the differences in average return and volatility between stock and bond accounts, and correctly explains what the 50/50 mixed account shows, citing the relevant sources for each piece of information. Thus, the score should be: 1.0.",
+        "ran": true
+      },
+      "citationSupport": {
+        "score": 1,
+        "comment": "All claims in the generated answer are directly supported by the cited sources. Source 3 confirms that stock funds have a higher average final balance and significantly higher standard deviation, and that bonds have a much narrower range of outcomes than stocks. Source 4 states that stocks fluctuate a lot and do best on average, while bonds don't do as well but have smaller drops and gains. Source 1 supports the claim that the mixed account's average and standard deviation will fall between those of the individual stock and bond accounts. Thus, the score should be: 1.0.",
+        "ran": true
+      }
+    },
+    {
+      "id": "matplotlib-sims-unanswerable-001",
+      "videoId": "a89e3671-971b-44e4-a3be-c0aa64630c40",
+      "category": "unanswerable",
+      "question": "Which Matplotlib colormap does the instructor recommend for creating a heatmap?",
+      "answerable": false,
+      "retrievedCount": 5,
+      "retrieved": [
+        {
+          "rank": 1,
+          "id": "8f9460ca-3730-4772-908e-dea5f6e77f4d",
+          "chunkIndex": 0,
+          "startMs": 15870,
+          "endMs": 48240,
+          "similarity": 0.596558266086122,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03252247488101534,
+          "content": "Computers are famous for handling data, but data visualization and data simulation are two areas that often go under-recognized. So, let's learn how to do both of these. One of the best packages to create visualizations of data is MacPlotLib. It has a very wide range of capabilities and is probably the most well-known and popular Python package for creating plots, graphs, and charts from data. You're going to want to install MatPlotLib first. One option is to use Pip."
+        },
+        {
+          "rank": 2,
+          "id": "a6d4c0f6-5873-4b30-baa7-b0f224f5b10b",
+          "chunkIndex": 3,
+          "startMs": 108850,
+          "endMs": 139690,
+          "similarity": 0.575797207330611,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03125,
+          "content": "If we run this, we see that Matt Plotlib has created a plot for us with axes in the range of 0 to 1 in both X and Y, and it includes some graphical tools at the bottom that let you interact with the chart by zooming in or moving around or saving it. OK, let's see how to display some data using the plot command. The plot command can take in a couple of lists. The first list gives all the x values. The second one gives all the y values."
+        },
+        {
+          "rank": 3,
+          "id": "6477cc68-9086-40bb-a139-09bd7c4fc58b",
+          "chunkIndex": 34,
+          "startMs": 998420,
+          "endMs": 1022890,
+          "similarity": 0.574156861070504,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.030309988518943745,
+          "content": "Now, given the results of all those runs, we can replace a simple printout of the values with a nice histogram to plot the results. We can use the hist command in matplotlib. That'll take in a list of results, which in this case is the final balances, and plot a histogram. We set the number of bins in this case to equal 20 and we'll run 10,000 experiments."
+        },
+        {
+          "rank": 4,
+          "id": "c8ab5868-0133-46f4-a1e6-f07e231fc8d0",
+          "chunkIndex": 8,
+          "startMs": 258770,
+          "endMs": 285200,
+          "similarity": null,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.01639344262295082,
+          "content": "When we run this, we see that it indeed creates a red line with blue crosses marking each data point. We can also print two plots on the same graph. In this case, we'll create a set of cubes. We'll plot that one in green with green circles marking the data points. All it takes is to create another list of y values and then to call plot a second time with the parameters for the second plot we want."
+        },
+        {
+          "rank": 5,
+          "id": "27259936-cdf0-4336-b460-5e65955be543",
+          "chunkIndex": 7,
+          "startMs": 232830,
+          "endMs": 257950,
+          "similarity": 0.588986751724732,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.016129032258064516,
+          "content": "We can set squares for the label, note that we want a marker that's a plus sign, and that the marker should be in blue, and make the color of the graph itself red. For each of these, we list the parameter and the value that we want it to take. And there's a new command, legend, that we have to import from PyPlot. To display the name of the plot, we import the legend command from mappplotlib.piplot."
+        }
+      ],
+      "retrievalMetrics": null,
+      "generatedAnswer": "I couldn't find enough information in this video to answer that.",
+      "generationError": null,
+      "abstained": true,
+      "abstentionResult": {
+        "pass": true,
+        "expectedAnswerable": false,
+        "actualAbstained": true
+      },
+      "citedSourceIds": [],
+      "invalidCitationIds": [],
+      "correctness": {
+        "ran": false,
+        "reason": "abstained"
+      },
+      "groundedness": {
+        "ran": false,
+        "reason": "abstained"
+      },
+      "citationSupport": {
+        "ran": false,
+        "reason": "abstained"
+      }
+    },
+    {
+      "id": "monte-carlo-paraphrase-001",
+      "videoId": "ef4b25b9-6d3b-4039-963a-e1f562b3cece",
+      "category": "paraphrase",
+      "question": "What does a larger standard deviation of final balances tell us about an investment, in the instructor's words?",
+      "answerable": true,
+      "retrievedCount": 5,
+      "retrieved": [
+        {
+          "rank": 1,
+          "id": "05bf0b9b-4c16-4e7c-be71-76349f1c9263",
+          "chunkIndex": 39,
+          "startMs": 1145630,
+          "endMs": 1177080,
+          "similarity": 0.742166620058996,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.03278688524590164,
+          "content": "It has functions such as mean and STDV for standard deviation to calculate the overall mean and standard deviation of a list. The larger the standard deviation, the more volatile our investment is. So, we can modify our code to import the statistics module, and then at the end of the program, we print out the average and the standard deviation from all of our runs. If we run this code, we see that we get a pretty high balance, and we also get a pretty big standard deviation."
+        },
+        {
+          "rank": 2,
+          "id": "0ea5e291-6b61-4cf1-9551-4241e1a89cce",
+          "chunkIndex": 44,
+          "startMs": 1280110,
+          "endMs": 1309210,
+          "similarity": 0.709899359231429,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.031054405392392875,
+          "content": "Now if we run the code, we'll see a plot showing both stock performance and bond performance. We can see in the histogram that the bonds have a much narrower range of outcomes than the stocks. And if we look at the statistics that we printed out, we'll see that indeed our stock funds have a higher average final balance but also have a significantly higher standard deviation. Now, often people will not have all their money in one kind of account, like all in stocks or all in bonds."
+        },
+        {
+          "rank": 3,
+          "id": "3aa97b31-fe05-4dd6-b717-06f831677668",
+          "chunkIndex": 38,
+          "startMs": 1121570,
+          "endMs": 1145270,
+          "similarity": 0.690290100000358,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.029910714285714284,
+          "content": "If we run this code, we'll see a pretty wide range of outcomes from ones where we actually lose a little money to ones where we make more than 10 times what we started with. Let's say that we want to understand that overall performance. We can compute some basic statistics on the final balances to help with this. We can use the statistics module that's part of the Python Standard Library."
+        },
+        {
+          "rank": 4,
+          "id": "60671b11-ccce-4082-8d6e-969e4675c62f",
+          "chunkIndex": 29,
+          "startMs": 853360,
+          "endMs": 877170,
+          "similarity": 0.662958105485545,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.028991596638655463,
+          "content": "Now unless we have some guaranteed investment like a certificate of deposit, the amount that the investment increases or decreases will change itself over time. Interest rates go up and down, and for investments that are traded like stocks and mutual funds, the fluctuations can be really significant. So suppose we have an investment that we know can fluctuate, but the return will never be negative."
+        },
+        {
+          "rank": 5,
+          "id": "8aab49a6-ed1b-468c-a2a4-a261e302ff81",
+          "chunkIndex": 33,
+          "startMs": 971780,
+          "endMs": 996790,
+          "similarity": null,
+          "retrievalMode": "hybrid",
+          "retrievalScore": 0.016129032258064516,
+          "content": "We still start with our function that computes the change in balance. We'll then have a loop for however many simulations we need. In each of them we'll start at times zero and with a balance of $1000 and we'll simulate for a few years just like before. We'll store the final balance into the final balance's array. After this leap, we can print out all the final balances found."
+        }
+      ],
+      "retrievalMetrics": {
+        "hitAt5": true,
+        "recallAt5": 1,
+        "precisionAt5": 0.2,
+        "reciprocalRankAt5": 1,
+        "timestampCoverageAt5": 1
+      },
+      "generatedAnswer": "In the instructor's words, a larger standard deviation tells us that the investment is more volatile [Source 1].",
+      "generationError": null,
+      "abstained": false,
+      "abstentionResult": {
+        "pass": true,
+        "expectedAnswerable": true,
+        "actualAbstained": false
+      },
+      "citedSourceIds": [
+        1
+      ],
+      "invalidCitationIds": [],
+      "correctness": {
+        "score": 1,
+        "comment": "The generated answer accurately states that a larger standard deviation means the investment is more volatile, which directly matches the required fact. It also correctly incorporates the phrasing 'in the instructor's words' from the question. Thus, the score should be: 1.0.",
+        "ran": true
+      },
+      "groundedness": {
+        "score": 1,
+        "comment": "The answer directly quotes the instructor from Source 1, stating that 'The larger the standard deviation, the more volatile our investment is.' This accurately reflects the instructor's words as requested. Thus, the score should be: 1.0.",
+        "ran": true
+      },
+      "citationSupport": {
+        "score": 1,
+        "comment": "The answer states that a larger standard deviation indicates a more volatile investment. Source 1 explicitly states, \"The larger the standard deviation, the more volatile our investment is.\" This directly supports the claim made in the answer and uses the instructor's words as requested. Thus, the score should be: 1.0.",
+        "ran": true
+      }
+    }
+  ],
+  "errors": []
+}

@@ -23,6 +23,7 @@
   "author": "Pranav Chauhan",
   "license": "ISC",
   "devDependencies": {
+    "@langchain/google-genai": "^2.2.0",
     "@rolldown/binding-linux-x64-gnu": "^1.0.0-rc.9",
     "prettier": "^3.5.3",
     "supertest": "^7.2.2",

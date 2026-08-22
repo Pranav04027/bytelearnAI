@@ -263,14 +263,14 @@ const LearnerDashboard = () => {
 
           {/* Recommendations */}
           <h2 className="text-[#0d0f1c] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Recommendations</h2>
-          <div className="flex overflow-y-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex items-stretch p-4 gap-3">
+          <div className="flex overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-4 py-4">
+            <div className="flex items-stretch gap-4 sm:gap-6 lg:gap-8">
               {(recommended || []).slice(0, 9).map((v) => (
-                <Link key={v._id} to={`/videos/${v._id}`} className="flex h-full flex-1 flex-col gap-4 rounded-lg min-w-40">
-                  <div className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-lg flex flex-col" style={{ backgroundImage: `url(${(v.thumbnail || '').replace('http://','https://')})` }} />
+                <Link key={v._id} to={`/videos/${v._id}`} className="flex h-full flex-col gap-4 rounded-2xl bg-white shadow-sm hover:shadow-md transition p-3 min-w-64 max-w-sm">
+                  <div className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl flex flex-col" style={{ backgroundImage: `url(${(v.thumbnail || '').replace('http://','https://')})` }} />
                   <div>
-                    <p className="text-[#0d0f1c] text-base font-medium leading-normal line-clamp-2">{v.title}</p>
-                    <p className="text-[#47569e] text-sm font-normal leading-normal line-clamp-2">{v.description}</p>
+                    <p className="text-[15px] font-semibold text-[#1b0e0e] leading-snug line-clamp-2">{v.title}</p>
+                    <p className="text-[12px] text-slate-500 line-clamp-2 font-sans mt-2">{v.description}</p>
                   </div>
                 </Link>
               ))}

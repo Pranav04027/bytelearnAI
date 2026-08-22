@@ -316,15 +316,17 @@ const submitQuiz = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Answers not exist or not in array format" });
     }
 
-    const existingAttempts = await prisma.quizAttempt.count({
-      where: { userId: req.user.id, videoId }
-    });
-
-    if (existingAttempts >= attemptLimit) {
-      return res.status(403).json({ 
-        success: false, 
-        message: `Attempt limit reached (${attemptLimit}). You cannot submit again.` 
+    if (req.user?.id) {
+      const existingAttempts = await prisma.quizAttempt.count({
+        where: { userId: req.user.id, videoId }
       });
+
+      if (existingAttempts >= attemptLimit) {
+        return res.status(403).json({ 
+          success: false, 
+          message: `Attempt limit reached (${attemptLimit}). You cannot submit again.` 
+        });
+      }
     }
 
     const quiz = await prisma.quiz.findUnique({
@@ -372,34 +374,40 @@ const submitQuiz = async (req, res, next) => {
         Struggles with: ${wrongConcepts.join(", ") || "none"}. 
         Strong on: ${correctConcepts.join(", ") || "none"}.`
       
-    await saveInMem(req.user.id, content);
+    if (req.user?.id) {
+      await saveInMem(req.user.id, content);
+    }
 
-    const attempt = await prisma.quizAttempt.create({
-      data: {
-        userId: req.user.id,
-        videoId: videoId,
-        score: score,
-        total: Math.round((score / (quiz.questions.length || 1)) * 100),
-        submittedAnswers: {
-          create: results.map(r => ({
-            question: r.question,
-            selectedOption: r.selectedOption,
-            isCorrect: r.isCorrect
-          }))
+    let attemptId = null;
+    if (req.user?.id) {
+      const attempt = await prisma.quizAttempt.create({
+        data: {
+          userId: req.user.id,
+          videoId: videoId,
+          score: score,
+          total: Math.round((score / (quiz.questions.length || 1)) * 100),
+          submittedAnswers: {
+            create: results.map(r => ({
+              question: r.question,
+              selectedOption: r.selectedOption,
+              isCorrect: r.isCorrect
+            }))
+          }
+        },
+        include: {
+          submittedAnswers: true
         }
-      },
-      include: {
-        submittedAnswers: true
-      }
-    });
+      });
+      attemptId = attempt.id;
+    }
 
     return res.status(200).json({
       success: true,
       statusCode: 200,
       data: {
-        attemptId: attempt.id,
+        attemptId,
         score,
-        totalPercentage: attempt.total,
+        totalPercentage: Math.round((score / (quiz.questions.length || 1)) * 100),
         totalQuestions: quiz.questions.length,
         correctAnswers: score,
         correctConcepts,

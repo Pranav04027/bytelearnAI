@@ -205,8 +205,7 @@ const VideoComments = ({ videoId, currentUserId, onTotalChange }) => {
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">Comments</h2>
+    <div className="space-y-6 pt-2">
 
       {!isAuthed && (
         <div className="p-3 border rounded bg-gray-50 text-sm text-gray-700">
@@ -214,17 +213,24 @@ const VideoComments = ({ videoId, currentUserId, onTotalChange }) => {
         </div>
       )}
 
-      <div className="flex gap-2">
-        <input
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder={isAuthed ? "Add a comment" : "Login to comment"}
-          className="flex-1 border rounded p-2 text-sm"
-          disabled={!isAuthed}
-        />
-        <button onClick={submit} disabled={!isAuthed} className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50">
-          Comment
-        </button>
+      <div className="flex items-center gap-3">
+        {isAuthed && (
+          <div className="w-10 h-10 rounded-full bg-[#f3e7e8] flex-shrink-0 flex items-center justify-center text-[#994d51] font-bold shadow-sm">
+            {user?.fullName?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+          </div>
+        )}
+        <div className="flex-1 flex gap-2">
+          <input
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder={isAuthed ? "Add a comment..." : "Login to comment"}
+            className="flex-1 bg-[#f3e7e8] border-none rounded-full px-4 py-2 text-sm text-[#1b0e0e] placeholder:text-[#1b0e0e]/50 focus:ring-2 focus:ring-[#994d51]/50 focus:outline-none"
+            disabled={!isAuthed}
+          />
+          <button onClick={submit} disabled={!isAuthed || !newComment.trim()} className="px-5 py-2 bg-[#994d51] hover:bg-[#7a3d41] text-white rounded-full text-sm font-medium transition-colors disabled:opacity-50 shadow-sm">
+            Comment
+          </button>
+        </div>
       </div>
 
       {loading && <div className="text-gray-600">Loading comments...</div>}

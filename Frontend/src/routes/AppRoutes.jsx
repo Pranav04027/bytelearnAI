@@ -200,14 +200,10 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Quizzes (learner) */}
+        {/* Quizzes (public — anyone, e.g. recruiters, can attempt) */}
         <Route
           path="quizzes/:videoId"
-          element={
-            <ProtectedRoute>
-              <TakeQuiz />
-            </ProtectedRoute>
-          }
+          element={<TakeQuiz />}
         />
 
         {/* Not found */}

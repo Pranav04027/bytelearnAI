@@ -129,8 +129,7 @@ const answerQuestionFromTranscript = async (req, res, next) => {
   const rootTags = ["bytelearn", "answer", "hybrid"];
 
   try {
-    return await trace(
-      "ByteLearnAnswerRequest",
+    return await trace( "ByteLearnAnswerRequest",
       async () => {
         if (!videoId || !cleanQuestion) {
           return res.status(400).json({
@@ -148,7 +147,7 @@ const answerQuestionFromTranscript = async (req, res, next) => {
 
         const isImportant = await getImpInfo(cleanQuestion);
 
-        if (isImportant) {
+        if (isImportant && req.user?.id) {
           await saveInMem(req.user.id, isImportant);
         }
 
@@ -178,7 +177,9 @@ const answerQuestionFromTranscript = async (req, res, next) => {
           async () => {
             let mem = "";
             try {
-              mem = (await retriveFromMem(req.user.id))?.trim() || "";
+              if (req.user?.id) {
+                mem = (await retriveFromMem(req.user.id))?.trim() || "";
+              }
             } catch (_) {
               mem = "";
             }

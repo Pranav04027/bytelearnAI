@@ -3,6 +3,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1011.0",
     "@langchain/core": "^1.2.8",
     "@supermemory/ai-sdk": "^1.0.8",
+    "groq-sdk": "^1.5.0",
     "openevals": "^0.2.2"
   }
 }

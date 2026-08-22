@@ -7,14 +7,10 @@ import { traceable } from "langsmith/traceable";
 // Optional LangSmith observability for ByteLearn V2.
 //
 // This module is a thin, behavior-preserving instrumentation layer built on
-// LangSmith's recommended `traceable` API. Tracing is OFF unless explicitly
-// enabled, and every failure degrades silently so that core ByteLearn behavior
+// LangSmith's recommended `traceable` API. Every failure degrades silently so that
+// core ByteLearn behavior
 // (retrieval, generation, SSE) is never affected.
 //
-// Enable by setting in the environment:
-//   LANGSMITH_TRACING=true
-//   LANGSMITH_API_KEY=<your key>
-//   LANGSMITH_PROJECT=bytelearn   (optional)
 // ---------------------------------------------------------------------------
 
 const PROJECT = process.env.LANGSMITH_PROJECT || "byteLearn";
@@ -60,7 +56,8 @@ function getClient() {
       // Reduce runtime environment noise in recorded traces.
       omitTracedRuntimeInfo: true,
     });
-    return cachedClient;
+      return cachedClient;
+      
   } catch (err) {
     clientInitFailed = true;
     console.warn(
@@ -99,6 +96,33 @@ function getClient() {
  * @param {object|((r:any)=>object)} [opts.outputs] - safe output summary
  * @param {object} [opts.invocationParams] - model invocation params (llm spans)
  */
+// LangSmith wraps a run's output as `{ ...rawOutputs }` when a runTree exists.
+// For functions that return an array, that spread turns the array into an
+// index-keyed plain object ({ "0": x, "1": y }). Reconstruct the array so our
+// `outputs` callbacks (which call `.map`/`.length` on the result) behave.
+function normalizeTraceOutput(raw) {
+  if (raw == null || Array.isArray(raw)) return raw;
+  if (typeof raw === "object") {
+    // LangSmith may wrap the output as { outputs: <value> } (no runTree path).
+    if (
+      "outputs" in raw &&
+      Object.keys(raw).length === 1 &&
+      raw.outputs !== undefined
+    ) {
+      return normalizeTraceOutput(raw.outputs);
+    }
+    const keys = Object.keys(raw);
+    const looksLikeSpreadArray =
+      keys.length === 0 || keys.every((k) => /^\d+$/.test(k));
+    if (looksLikeSpreadArray) {
+      return keys
+        .sort((a, b) => Number(a) - Number(b))
+        .map((k) => raw[k]);
+    }
+  }
+  return raw;
+}
+
 export async function trace(name, fn, opts = {}) {
   const client = getClient();
   if (!client) {
@@ -126,9 +150,10 @@ export async function trace(name, fn, opts = {}) {
     processInputs: () => opts.inputs ?? {},
     // Never log the raw return (could be res, full matches, answers).
     processOutputs: (raw) => {
+      const normalized = normalizeTraceOutput(raw);
       const base =
         typeof opts.outputs === "function"
-          ? opts.outputs(raw)
+          ? opts.outputs(normalized)
           : opts.outputs ?? {};
       return { ...base, latencyMs };
     },

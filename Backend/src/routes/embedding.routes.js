@@ -3,11 +3,12 @@ import {
   answerQuestionFromTranscript,
   chunkAndEmbed,
 } from "../controllers/embedding.controllers.js";
-import { verifyJWT } from "../middlewares/auth.middlewares.js";
 
 const router = Router();
 
 router.post("/chunk-and-embed", chunkAndEmbed);
-router.post("/answer", verifyJWT, answerQuestionFromTranscript);
+// Public: "Ask the Video" RAG should be usable by anyone (e.g. recruiters)
+// without logging in.
+router.post("/answer", answerQuestionFromTranscript);
 
 export default router;

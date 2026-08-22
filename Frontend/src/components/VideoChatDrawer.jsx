@@ -52,7 +52,7 @@ function CitationChip({ source, onSeekToMs }) {
       type="button"
       onClick={() => onSeekToMs && onSeekToMs(source.startMs)}
       title={`Jump to ${formatMsToTimestamp(source.startMs)}`}
-      className="inline-flex items-center gap-1 mx-0.5 my-0.5 align-middle text-[11px] font-mono bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-full px-2 py-0.5 transition-colors"
+      className="inline-flex items-center gap-1 mx-0.5 my-0.5 align-middle text-[11px] font-mono bg-white hover:bg-slate-50 text-[#994d51] border border-slate-200 rounded-full px-2 py-0.5 shadow-sm transition-colors"
     >
       <span aria-hidden="true">▶</span>
       {formatMsToTimestamp(source.startMs)}–{formatMsToTimestamp(source.endMs)}
@@ -322,25 +322,26 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose, onSeekToMs }) => {
         />
       )}
       <div
-        className={`fixed top-0 right-0 h-full w-full md:w-[400px] bg-white shadow-2xl transform transition-transform duration-300 z-[60] flex flex-col ${
+        className={`fixed top-0 right-0 h-dvh w-full md:w-[400px] bg-white shadow-2xl transform transition-transform duration-300 z-[60] flex flex-col ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between px-4 py-4 border-b">
-          <h2 className="text-lg font-bold text-gray-800">Ask the Video</h2>
+        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200">
+          <h2 className="text-lg font-bold text-[#1b0e0e]">Ask the Video</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 bg-gray-100 rounded-full p-2"
+            className="text-slate-500 hover:text-[#1b0e0e] bg-slate-100 hover:bg-slate-200 rounded-full p-2 transition-colors focus:outline-none focus:ring-2 focus:ring-[#994d51]/50"
           >
             ✕
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#fcf8f8]">
           {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-2">
-              <span className="text-4xl">🤖</span>
-              <p>Ask me anything about this video!</p>
+            <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3 p-6 text-center">
+              <div className="w-16 h-16 bg-[#f3e7e8] rounded-full flex items-center justify-center text-2xl shadow-sm">✨</div>
+              <p className="font-medium text-lg text-[#1b0e0e]">How can I help?</p>
+              <p className="text-sm">Ask me anything about the contents of this video.</p>
             </div>
           ) : (
             messages.map((msg, idx) => (
@@ -351,12 +352,12 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose, onSeekToMs }) => {
                 }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
                     msg.role === "user"
-                      ? "bg-indigo-600 text-white rounded-br-none"
+                      ? "bg-[#994d51] text-white rounded-br-sm shadow-sm"
                       : isNotCovered(msg.content)
                       ? "bg-orange-100 text-orange-800 border border-orange-200"
-                      : "bg-white text-gray-800 border rounded-bl-none shadow-sm"
+                      : "bg-[#f3e7e8] text-[#1b0e0e] rounded-bl-sm shadow-sm"
                   }`}
                 >
                   {msg.role === "ai" && isNotCovered(msg.content) ? (
@@ -386,20 +387,20 @@ const VideoChatDrawer = ({ videoId, isOpen, onClose, onSeekToMs }) => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="p-4 bg-white border-t">
+        <div className="p-4 bg-white border-t border-slate-200 sticky bottom-0 z-10">
           <form onSubmit={handleSend} className="flex gap-2">
             <input
               type="text"
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               placeholder="Ask a question..."
-              className="flex-1 border rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="flex-1 border border-slate-300 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 focus:border-transparent bg-slate-50"
               disabled={isLoading}
             />
             <button
               type="submit"
               disabled={!inputVal.trim() || isLoading}
-              className="bg-indigo-600 text-white rounded-full px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="bg-[#994d51] text-white rounded-full px-5 py-2.5 text-sm font-medium hover:bg-[#7a3d41] disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 shadow-sm"
             >
               Send
             </button>

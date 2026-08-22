@@ -12,9 +12,11 @@ import { checkRole } from "../middlewares/role.middlewares.js";
 const router = Router();
 
 router.post("/create/:videoId", verifyJWT, checkRole("instructor"), createQuiz);
-router.post("/create-ai/:videoId", verifyJWT, createQuizAI);
-router.get("/isquiz/:videoId", verifyJWT, isquiz);
-router.post("/:videoId/submit", verifyJWT, submitQuiz);
-router.get("/:videoId", verifyJWT, getQuizByVideo);
+// Public: let anyone (e.g. recruiters) generate an AI quiz without logging in.
+router.post("/create-ai/:videoId", createQuizAI);
+router.get("/isquiz/:videoId", isquiz);
+// Public: let anyone view and attempt a quiz without logging in.
+router.post("/:videoId/submit", submitQuiz);
+router.get("/:videoId", getQuizByVideo);
 
 export default router;

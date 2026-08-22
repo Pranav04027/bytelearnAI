@@ -13,6 +13,8 @@ import VideoComments from "../Comments/VideoComments.jsx";
 import VideoChatDrawer from "../../components/VideoChatDrawer.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import axios from "../../api/axios.js";
+import { emit } from "../../utils/emitter.js";
+import { ThumbsUp, Bookmark, PlusSquare, Sparkles, BrainCircuit, Loader2, AlertCircle } from "lucide-react";
 
 const MetaItem = ({ label, value }) => (
   <div>
@@ -194,10 +196,7 @@ const VideoDetail = () => {
   }, [isAuthed, id]);
 
   useEffect(() => {
-    if (!isAuthed || !id) {
-      setQuizExists(false);
-      return;
-    }
+    if (!id) return;
 
     let mounted = true;
 
@@ -217,7 +216,7 @@ const VideoDetail = () => {
     return () => {
       mounted = false;
     };
-  }, [isAuthed, id]);
+  }, [id]);
 
   useEffect(() => {
     const loadSubscriptionStatus = async () => {
@@ -360,7 +359,10 @@ const VideoDetail = () => {
   const onTotalCommentsChange = (total) => setCommentCount(total || 0);
 
   const onToggleLike = async () => {
-    if (!isAuthed) return;
+    if (!isAuthed) {
+      emit("toast", { type: "warning", message: "Please login to like this video." });
+      return;
+    }
     setLiking(true);
     const nextLiked = !isLiked;
     setLikeCount((c) => {
@@ -405,7 +407,10 @@ const VideoDetail = () => {
   };
 
   const onToggleBookmark = async () => {
-    if (!isAuthed) return;
+    if (!isAuthed) {
+      emit("toast", { type: "warning", message: "Please login to bookmark this video." });
+      return;
+    }
     if (!isValidObjectIdStr(id)) return; // avoid bad requests
     const next = !isBookmarked;
     setIsBookmarked(next);
@@ -444,7 +449,10 @@ const VideoDetail = () => {
   };
 
   const openPlaylistModal = async () => {
-    if (!isAuthed) return;
+    if (!isAuthed) {
+      emit("toast", { type: "warning", message: "Please login to save this video." });
+      return;
+    }
     setShowPlaylistModal(true);
     setShowCreateForm(false);
     setNewPlaylistName("");
@@ -494,7 +502,7 @@ const VideoDetail = () => {
   };
 
   const handleQuizAction = async () => {
-    if (!isAuthed || !id || quizActionLoading) {
+    if (!id || quizActionLoading) {
       return;
     }
 
@@ -599,56 +607,51 @@ const VideoDetail = () => {
         </p>
 
         <div className="@container">
-          <div className="px-4 flex flex-wrap justify-start gap-3">
-            <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-24">
-              <button onClick={onToggleLike} disabled={!isAuthed || liking} className="rounded-full bg-[#f3e7e8] p-2.5 disabled:opacity-50 hover:shadow">
-                <span className="text-[#1b0e0e]">👍</span>
+          <div className="px-4 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200">
+            {/* Left side: Minimalist row for Like, Bookmark, Playlist */}
+            <div className="flex items-center gap-6">
+              <button onClick={onToggleLike} disabled={liking} className="flex items-center gap-2 text-slate-700 hover:text-[#994d51] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 rounded-lg px-2 py-1 -ml-2">
+                <ThumbsUp className={`w-5 h-5 ${isLiked ? 'fill-current text-[#994d51]' : ''}`} />
+                <span className="text-sm font-medium">{isLiked ? "Unlike" : "Like"} • {typeof likeCount === 'number' ? likeCount : 0}</span>
               </button>
-              <p className="text-[#1b0e0e] text-sm font-medium leading-normal">{isLiked ? "Unlike" : "Like"}</p>
-              <p className="text-[#994d51] text-xs leading-normal">{typeof likeCount === 'number' ? likeCount : 0} likes</p>
-            </div>
-            <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-28">
-              <button onClick={onToggleBookmark} disabled={!isAuthed} className="rounded-full bg-[#f3e7e8] p-2.5 disabled:opacity-50 hover:shadow">
-                <span className="text-[#1b0e0e]">🔖</span>
+              <button onClick={onToggleBookmark} className="flex items-center gap-2 text-slate-700 hover:text-[#994d51] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 rounded-lg px-2 py-1">
+                <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-current text-[#994d51]' : ''}`} />
+                <span className="text-sm font-medium">{isBookmarked ? "Bookmarked" : "Bookmark"}</span>
               </button>
-              <p className="text-[#1b0e0e] text-sm font-medium leading-normal">{isBookmarked ? "Bookmarked" : "Bookmark"}</p>
-            </div>
-            <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-36">
-              <button onClick={openPlaylistModal} disabled={!isAuthed} className="rounded-full bg-[#f3e7e8] p-2.5 disabled:opacity-50 hover:shadow">
-                <span className="text-[#1b0e0e]">➕</span>
+              <button onClick={openPlaylistModal} className="flex items-center gap-2 text-slate-700 hover:text-[#994d51] transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 rounded-lg px-2 py-1">
+                <PlusSquare className="w-5 h-5" />
+                <span className="text-sm font-medium">Save</span>
               </button>
-              <p className="text-[#1b0e0e] text-sm font-medium leading-normal">Add to playlist</p>
             </div>
-            {/* AI Status or Actions */}
+
+            {/* Right side: AI Actions */}
+            <div className="flex items-center gap-3">
             {(() => {
               const status = video.transcription?.status;
               
               if (status === "PENDING" || status === "PROCESSING") {
                 return (
-                  <div className="flex flex-col items-center justify-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-auto px-4 ml-auto rounded-lg border border-indigo-100 bg-indigo-50/50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
-                      <p className="text-indigo-800 text-sm font-medium">Transcribing video for AI features...</p>
-                    </div>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-indigo-100 bg-indigo-50/50">
+                    <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                    <p className="text-indigo-800 text-sm font-medium">Transcribing...</p>
                   </div>
                 );
               }
               
               if (status === "TRANSCRIBED") {
                 return (
-                  <div className="flex flex-col items-center justify-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-auto px-4 ml-auto rounded-lg border border-purple-100 bg-purple-50/50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full border-2 border-purple-600 border-t-transparent animate-spin"></div>
-                      <p className="text-purple-800 text-sm font-medium">Generating AI embeddings...</p>
-                    </div>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-100 bg-purple-50/50">
+                    <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
+                    <p className="text-purple-800 text-sm font-medium">Generating AI...</p>
                   </div>
                 );
               }
               
               if (status === "FAILED") {
                 return (
-                  <div className="flex flex-col items-center justify-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-auto px-4 ml-auto rounded-lg border border-red-100 bg-red-50/50">
-                    <p className="text-red-600 text-sm font-medium">❌ AI features failed to process</p>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-100 bg-red-50/50">
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                    <p className="text-red-600 text-sm font-medium">AI Failed</p>
                   </div>
                 );
               }
@@ -656,41 +659,34 @@ const VideoDetail = () => {
               if (status === "READY") {
                 return (
                   <>
-                    <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-36 ml-auto">
-                      <button
-                        onClick={() => setIsChatDrawerOpen(true)}
-                        className="rounded-full bg-indigo-100 text-indigo-600 p-2.5 font-bold hover:bg-indigo-200 hover:shadow transition-colors ring-2 ring-indigo-200"
-                      >
-                        Ask
-                      </button>
-                      <p className="text-[#1b0e0e] text-sm font-medium leading-normal">Ask the Video</p>
-                    </div>
-                    {isAuthed && (
-                      <div className="flex flex-col items-center gap-1.5 bg-[#fcf8f8] py-2.5 text-center w-40">
-                        <button
-                          onClick={handleQuizAction}
-                          disabled={quizActionLoading}
-                          className="rounded-full bg-emerald-100 text-emerald-700 p-2.5 font-bold hover:bg-emerald-200 hover:shadow transition-colors ring-2 ring-emerald-200 disabled:opacity-60"
-                        >
-                          <span>{quizActionLoading ? "..." : quizExists ? "Start" : "AI"}</span>
-                        </button>
-                        <p className="text-[#1b0e0e] text-sm font-medium leading-normal">
-                          {quizActionLoading ? "Preparing quiz" : quizExists ? "Attempt Quiz" : "Create Quiz"}
-                        </p>
-                      </div>
-                    )}
+                    <button
+                      onClick={handleQuizAction}
+                      disabled={quizActionLoading}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-60 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                    >
+                      <BrainCircuit className="w-4 h-4" />
+                      {quizActionLoading ? "Preparing..." : quizExists ? "Attempt Quiz" : "Create Quiz"}
+                    </button>
+                    <button
+                      onClick={() => setIsChatDrawerOpen(true)}
+                      className="flex items-center gap-2 bg-[#994d51] text-white px-6 py-2.5 rounded-lg font-bold text-sm shadow-sm hover:bg-[#7a3d41] transition-all focus:ring-2 focus:ring-[#994d51]/50 focus:outline-none"
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      Ask the Video
+                    </button>
                   </>
                 );
               }
               
               return null;
             })()}
+            </div>
           </div>
         </div>
       </div>
 
       <div className="bg-[#fcf8f8] rounded-lg p-4">
-        <h2 className="text-lg font-bold text-[#1b0e0e] mb-2 px-1">More</h2>
+        <h2 className="text-lg font-bold text-[#1b0e0e] mb-2 px-1">Instructor:</h2>
         {(() => {
           const ownerId =
             (typeof video?.owner === "object" ? video?.owner?._id : video?.owner) ||

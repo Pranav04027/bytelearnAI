@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getQuizByVideoId, submitQuiz } from "../../api/quizzes.js";
 import { getLearnerDashboard } from "../../api/auth.js";
+import useAuth from "../../hooks/useAuth.js";
 
 const TakeQuiz = () => {
   const { videoId } = useParams();
+  const { user } = useAuth();
+  const isAuthed = Boolean(user);
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -25,6 +28,7 @@ const TakeQuiz = () => {
         setQuiz(data);
         // Load learner attempts to calculate current attempt count for this quiz
         try {
+          if (!isAuthed) throw new Error("anonymous");
           const dash = await getLearnerDashboard();
           const attempts = Array.isArray(dash?.data?.quizAttempts)
             ? dash.data.quizAttempts

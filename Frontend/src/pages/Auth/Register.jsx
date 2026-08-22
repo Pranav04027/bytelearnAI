@@ -93,10 +93,10 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#fcf8f8] py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full bg-white shadow-xl rounded-2xl p-8 space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="text-center text-3xl font-extrabold text-[#1b0e0e]">
             Create your ByteLearn account
           </h2>
         </div>
@@ -108,7 +108,7 @@ const Register = () => {
               placeholder="Full Name"
               value={formData.fullname}
               onChange={handleChange}
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="block w-full px-4 py-3 bg-[#f3e7e8] border-none text-[#1b0e0e] placeholder-[#1b0e0e]/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 sm:text-sm"
               required
             />
             <input
@@ -117,7 +117,7 @@ const Register = () => {
               placeholder="Username"
               value={formData.username}
               onChange={handleChange}
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="block w-full px-4 py-3 bg-[#f3e7e8] border-none text-[#1b0e0e] placeholder-[#1b0e0e]/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 sm:text-sm"
               required
             />
             <input
@@ -126,7 +126,7 @@ const Register = () => {
               placeholder="Email"
               value={formData.email}
               onChange={handleChange}
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="block w-full px-4 py-3 bg-[#f3e7e8] border-none text-[#1b0e0e] placeholder-[#1b0e0e]/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 sm:text-sm"
               required
             />
             <input
@@ -135,14 +135,14 @@ const Register = () => {
               placeholder="Password"
               value={formData.password}
               onChange={handleChange}
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="block w-full px-4 py-3 bg-[#f3e7e8] border-none text-[#1b0e0e] placeholder-[#1b0e0e]/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 sm:text-sm"
               required
             />
             <select
               name="role"
               value={formData.role}
               onChange={handleChange}
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="block w-full px-4 py-3 bg-[#f3e7e8] border-none text-[#1b0e0e] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 sm:text-sm appearance-none"
             >
               <option value="learner">Learner</option>
               <option value="instructor">Instructor</option>
@@ -154,7 +154,7 @@ const Register = () => {
                 type="file"
                 accept="image/*"
                 onChange={(e) => handleFileChange(e, "avatar")}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="block w-full px-4 py-3 bg-[#f3e7e8] border-none text-[#1b0e0e] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 sm:text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#994d51] file:text-white hover:file:bg-[#7a3d41]"
                 required
               />
             </div>
@@ -164,7 +164,7 @@ const Register = () => {
                 type="file"
                 accept="image/*"
                 onChange={(e) => handleFileChange(e, "coverImage")}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="block w-full px-4 py-3 bg-[#f3e7e8] border-none text-[#1b0e0e] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 sm:text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#994d51] file:text-white hover:file:bg-[#7a3d41]"
               />
             </div>
           </div>
@@ -174,13 +174,13 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+            className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#994d51] hover:bg-[#7a3d41] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#994d51] transition-colors disabled:opacity-50"
           >
             {loading ? "Creating account..." : "Create account"}
           </button>
 
           <div className="text-center">
-            <a href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+            <a href="/login" className="font-medium text-[#994d51] hover:text-[#7a3d41] transition-colors">
               Already have an account? Sign in
             </a>
           </div>
