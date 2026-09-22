@@ -1,5 +1,4 @@
 import { prisma } from "../db/index.js";
-import { saveInMem, getImpInfo, retriveFromMem } from "../utils/supermemory.js";
 import {
   embeddingModel,
   geminiEmbeddingModel,
@@ -10,6 +9,7 @@ import {
   ABSTENTION_RESPONSE,
   ANSWER_MODEL_NAME,
 } from "../services/ragAnswerService.js";
+import { ANSWER_GENERATION_CONFIG } from "../models/answerChatModel.js";
 import {
   trace,
   randomUUID,
@@ -145,12 +145,6 @@ const answerQuestionFromTranscript = async (req, res, next) => {
           });
         }
 
-        const isImportant = await getImpInfo(cleanQuestion);
-
-        if (isImportant && req.user?.id) {
-          await saveInMem(req.user.id, isImportant);
-        }
-
         ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
 
         initializeSse(res);
@@ -171,30 +165,6 @@ const answerQuestionFromTranscript = async (req, res, next) => {
           return res.end();
         }
 
-        // Learner memory retrieval (personalization context for generation).
-        const memory = await trace(
-          "learnerMemory",
-          async () => {
-            let mem = "";
-            try {
-              if (req.user?.id) {
-                mem = (await retriveFromMem(req.user.id))?.trim() || "";
-              }
-            } catch (_) {
-              mem = "";
-            }
-            return mem;
-          },
-          {
-            runType: "chain",
-            inputs: { userId, question: cleanQuestion },
-            outputs: (mem) => ({
-              hadMemory: !!mem && mem.length > 0,
-              memoryLength: mem?.length ?? 0,
-            }),
-          }
-        );
-
         const genStart = Date.now();
         const { answer, sources } = await trace(
           "groundedGeneration",
@@ -202,7 +172,6 @@ const answerQuestionFromTranscript = async (req, res, next) => {
             streamGroundedAnswer({
               question: cleanQuestion,
               matches,
-              memory,
               isClientClosed: () => clientClosed,
               onToken: (text) => {
                 writeSseEvent(res, "token", { text });
@@ -213,7 +182,6 @@ const answerQuestionFromTranscript = async (req, res, next) => {
             inputs: {
               question: cleanQuestion,
               matchCount: matches.length,
-              hasMemory: !!memory,
               model: ANSWER_MODEL_NAME,
             },
             outputs: (r) => ({
@@ -225,10 +193,7 @@ const answerQuestionFromTranscript = async (req, res, next) => {
             }),
             invocationParams: {
               model: ANSWER_MODEL_NAME,
-              temperature: 0.7,
-              topP: 0.95,
-              topK: 64,
-              maxOutputTokens: 8192,
+              ...ANSWER_GENERATION_CONFIG,
             },
           }
         );

@@ -48,16 +48,6 @@ describe("langsmith tracer", () => {
       "ByteLearnAnswerRequest",
       async () => {
         await trace(
-          "learnerMemory",
-          async () => "mem",
-          {
-            inputs: { userId: "u1", question: "q" },
-            metadata: { environment: "test" },
-            tags: ["bytelearn"],
-          }
-        );
-
-        await trace(
           "hybridRetrieval",
           async () => {
             await trace(
@@ -104,7 +94,6 @@ describe("langsmith tracer", () => {
 
     const expected = [
       "ByteLearnAnswerRequest",
-      "learnerMemory",
       "hybridRetrieval",
       "denseRetrieval",
       "lexicalRetrieval",
@@ -119,7 +108,6 @@ describe("langsmith tracer", () => {
     const root = byName["ByteLearnAnswerRequest"];
     expect(root.parent_run_id).toBeUndefined();
     expect(root.trace_id).toBe(root.id);
-    expect(byName["learnerMemory"].parent_run_id).toBe(root.id);
 
     const hyb = byName["hybridRetrieval"];
     expect(hyb.parent_run_id).toBe(root.id);

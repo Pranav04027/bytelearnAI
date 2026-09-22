@@ -1,33 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+import { answerChatModel } from "../models/answerChatModel.js";
 import { trace } from "../observability/langsmithTracer.js";
-
-// Answer-generation Gemini model. This is intentionally separate from the
-// embedding model in src/utils/geminiEmbedding.js (different concern).
-export const ANSWER_MODEL_NAME = "gemini-2.5-flash-lite";
-
-const geminiApiKey = process.env.GEMINI_API_KEY;
-const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
-
-export const aiModel = genAI?.getGenerativeModel({
-  model: ANSWER_MODEL_NAME,
-  generationConfig: {
-    temperature: 0.7,
-    topP: 0.95,
-    topK: 64,
-    maxOutputTokens: 8192,
-    responseMimeType: "text/plain",
-  },
-});
-
-const ensureModel = (model, message) => {
-  if (!model) {
-    const error = new Error(message);
-    error.statusCode = 500;
-    throw error;
-  }
-
-  return model;
-};
+export { ANSWER_MODEL_NAME } from "../models/answerChatModel.js";
 
 // Exact abstention response returned when the transcript lacks evidence.
 export const ABSTENTION_RESPONSE =
@@ -46,8 +20,6 @@ const buildSource = (match, index) => ({
   endMs: match.endMs,
   similarity: match.similarity,
 });
-
-const buildSources = (matches) => matches.map(buildSource);
 
 // Extract the distinct [Source N] ids referenced in a generated answer.
 // Invalid/non-numeric tokens are ignored.
@@ -76,14 +48,13 @@ const buildContextText = (matches) =>
     })
     .join("\n\n");
 
-const buildPrompt = (question, contextText, memory) => `
+const SYSTEM_INSTRUCTIONS = `
 You are a brilliant, friendly, and authoritative AI tutor explaining a video to a student.
 
 Grounding rules (strictly enforced):
 - The provided transcript context is the ONLY factual source. Use ONLY it to answer.
 - Do NOT use any outside or general knowledge not present in the transcript context.
 - Do NOT infer or state facts that are not directly supported by the transcript context.
-- Learner memory below may ONLY personalize your explanation style (tone, examples, level). It is NEVER factual evidence — do not cite it and do not treat it as a source.
 - When a factual claim is supported by the transcript context, cite the supporting source using exactly the format [Source 1], [Source 2], etc., matching the source labels in the context.
 - Only cite source numbers that actually exist in the context. Never invent or guess a citation number.
 - Speak directly to the student naturally. Do NOT say "Based on the transcript" or "The video discusses".
@@ -92,16 +63,12 @@ Grounding rules (strictly enforced):
 Abstention:
 - If the transcript context does not contain enough evidence to answer the question, respond with EXACTLY this sentence and nothing else (no citation, no extra text):
 ${ABSTENTION_RESPONSE}
-
-Learner memory:
-${memory || "No prior learner memory available."}
-
-Question:
-${question}
-
-Transcript context:
-${contextText}
 `;
+
+export const buildGroundedMessages = (question, matches) => [
+  new SystemMessage(SYSTEM_INSTRUCTIONS),
+  new HumanMessage(`Question:\n${question}\n\nTranscript context:\n${buildContextText(matches)}`),
+];
 
 /**
  * Stream a grounded answer from the transcript context.
@@ -111,8 +78,7 @@ ${contextText}
  *
  * @param {Object} params
  * @param {string} params.question - cleaned user question
- * @param {Array} params.matches - chunks from retrieveTranscriptChunksDense
- * @param {string} [params.memory] - learner memory string (orchestrated by controller)
+ * @param {Array} params.matches - current hybrid transcript matches
  * @param {(text: string) => void} [params.onToken] - streamed token callback
  * @param {() => boolean} [params.isClientClosed] - client disconnect check
  * @returns {Promise<{ answer: string, sources: Array }>}
@@ -120,7 +86,6 @@ ${contextText}
 export async function streamGroundedAnswer({
   question,
   matches,
-  memory,
   onToken,
   isClientClosed,
 }) {
@@ -128,24 +93,12 @@ export async function streamGroundedAnswer({
     throw new Error("Question and retrieval matches are required to generate an answer");
   }
 
-  const model = ensureModel(aiModel, "Gemini answer model is not configured");
-
-  const sources = buildSources(matches);
-  const contextText = buildContextText(matches);
-  const prompt = buildPrompt(question, contextText, memory || "");
-
-  const result = await model.generateContentStream(prompt);
+  const messages = buildGroundedMessages(question, matches);
   let answer = "";
 
-  for await (const chunk of result.stream) {
+  for await (const text of answerChatModel.stream(messages)) {
     if (isClientClosed && isClientClosed()) {
       break;
-    }
-
-    const text = chunk.text?.();
-
-    if (!text) {
-      continue;
     }
 
     answer += text;

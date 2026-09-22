@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { fakeGoogleStream, recordTraces } from "./modelTestHelpers.js";
 
 // Mock the underlying retrievers so we exercise the REAL hybrid orchestrator
 // (retrieveHybridTranscriptChunks) and its nested trace() calls without a DB.
@@ -23,22 +24,8 @@ const { getStreamText } = vi.hoisted(() => {
   const streamText = { value: "Here is the answer [Source 1]." };
   return { getStreamText: streamText };
 });
-vi.mock("@google/generative-ai", () => {
-  const fakeModel = {
-    generateContentStream: vi.fn(async () => ({
-      stream: (async function* () {
-        yield { text: () => getStreamText.value };
-      })(),
-    })),
-  };
-  return {
-    GoogleGenerativeAI: class {
-      constructor() {}
-      getGenerativeModel() {
-        return fakeModel;
-      }
-    },
-  };
+beforeEach(() => {
+  fakeGoogleStream(() => [getStreamText.value]);
 });
 
 import { retrieveHybridTranscriptChunks } from "../services/hybridTranscriptRetriever.js";
@@ -48,18 +35,7 @@ import {
 } from "../observability/langsmithTracer.js";
 
 // Records run-creation payloads (the reliably observable fields).
-const recorder = () => {
-  const created = [];
-  const client = {
-    createRun: async (runCreate) => {
-      created.push(runCreate);
-      return runCreate;
-    },
-    updateRun: async () => ({}),
-    patchRun: async () => ({}),
-  };
-  return { client, created };
-};
+const recorder = recordTraces;
 
 const enableTracing = () => {
   process.env.LANGSMITH_TRACING = "true";
@@ -67,6 +43,7 @@ const enableTracing = () => {
 };
 
 afterEach(() => {
+  vi.restoreAllMocks();
   __resetClientForTesting();
   delete process.env.LANGSMITH_TRACING;
   delete process.env.LANGSMITH_API_KEY;
@@ -77,7 +54,7 @@ afterEach(() => {
 describe("ByteLearn V2 instrumentation (real code paths)", () => {
   it("hybridRetrieval nests dense/lexical/rrf and exposes only safe metadata", async () => {
     enableTracing();
-    const { client, created } = recorder();
+    const { client, created, updated } = recorder();
     __setClientForTesting(client);
 
     const result = await retrieveHybridTranscriptChunks("vid-123", "what is X?");
@@ -104,7 +81,7 @@ describe("ByteLearn V2 instrumentation (real code paths)", () => {
     expect(byName["denseRetrieval"].inputs.limit).toBe(10);
 
     // No raw transcript content is ever logged.
-    const serialized = JSON.stringify(created);
+    const serialized = JSON.stringify({ created, updated });
     expect(serialized).not.toContain("secret-content-A");
     expect(serialized).toContain("vid-123");
   });
