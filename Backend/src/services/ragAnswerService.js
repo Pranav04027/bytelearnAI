@@ -65,8 +65,11 @@ Abstention:
 ${ABSTENTION_RESPONSE}
 `;
 
-export const buildGroundedMessages = (question, matches) => [
+export const buildGroundedMessages = (question, matches, { previousQuestion } = {}) => [
   new SystemMessage(SYSTEM_INSTRUCTIONS),
+  ...(previousQuestion ? [new HumanMessage(
+    `Previous human question (for interpreting the follow-up only, NOT factual evidence):\n${previousQuestion}`
+  )] : []),
   new HumanMessage(`Question:\n${question}\n\nTranscript context:\n${buildContextText(matches)}`),
 ];
 
@@ -79,13 +82,23 @@ export const buildGroundedMessages = (question, matches) => [
  * @param {Object} params
  * @param {string} params.question - cleaned user question
  * @param {Array} params.matches - current hybrid transcript matches
+ * @param {string} [params.previousQuestion] - follow-up context, never evidence
  * @param {(text: string) => void} [params.onToken] - streamed token callback
  * @param {() => boolean} [params.isClientClosed] - client disconnect check
  * @returns {Promise<{ answer: string, sources: Array }>}
  */
-export async function streamGroundedAnswer({
+export async function streamGroundedAnswer(params) {
+  const answer = await streamGroundedAnswerText(params);
+  const sources = await validateGroundedCitations(answer, params.matches);
+  return { answer, sources };
+}
+
+// Generation-only boundary for the graph's generate node. The existing public
+// service above still performs both steps and preserves its token contract.
+export async function streamGroundedAnswerText({
   question,
   matches,
+  previousQuestion,
   onToken,
   isClientClosed,
 }) {
@@ -93,7 +106,7 @@ export async function streamGroundedAnswer({
     throw new Error("Question and retrieval matches are required to generate an answer");
   }
 
-  const messages = buildGroundedMessages(question, matches);
+  const messages = buildGroundedMessages(question, matches, { previousQuestion });
   let answer = "";
 
   for await (const text of answerChatModel.stream(messages)) {
@@ -111,10 +124,14 @@ export async function streamGroundedAnswer({
     throw new Error("Failed to generate an answer from transcript context");
   }
 
+  return finalAnswer;
+}
+
+export async function validateGroundedCitations(finalAnswer, matches) {
   // Grounding post-processing: return metadata only for sources actually
   // cited in the answer, ignoring invalid/non-existent source numbers.
   // On the exact abstention response, no sources are returned.
-  const citedSources = await trace(
+  return trace(
     "citationValidation",
     () => validateCitations(finalAnswer, matches),
     {
@@ -126,13 +143,12 @@ export async function streamGroundedAnswer({
       }),
     }
   );
-
-  return { answer: finalAnswer, sources: citedSources };
 }
 
 // Pure grounding post-processor: return metadata only for sources actually
 // cited in the answer, ignoring invalid/non-existent source numbers. On the
 // exact abstention response, no sources are returned.
+// Citation-ID filtering does not establish semantic faithfulness.
 export function validateCitations(answer, matches) {
   if (answer === ABSTENTION_RESPONSE) {
     return [];

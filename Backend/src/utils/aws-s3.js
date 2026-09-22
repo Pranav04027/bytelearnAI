@@ -6,7 +6,6 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { RequestChecksumCalculation } from "@aws-sdk/middleware-flexible-checksums";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const AWS_REGION = process.env.AWS_REGION;
@@ -19,7 +18,7 @@ const s3 = new S3Client({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
-  requestChecksumCalculation: RequestChecksumCalculation.WHEN_REQUIRED,
+  requestChecksumCalculation: "WHEN_REQUIRED",
 });
 
 const MEDIA_PREFIX = {
