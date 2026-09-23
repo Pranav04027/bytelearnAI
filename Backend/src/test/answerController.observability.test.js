@@ -1,3 +1,7 @@
+vi.mock("../graphs/postgresCheckpointer.js", async () => {
+  const { fakePostgresCheckpointerModule } = await import("./postgresTestHelpers.js");
+  return fakePostgresCheckpointerModule();
+});
 // Configure a test-only key before the lazy answer model is first invoked.
 import "./setupEnv.js";
 import { randomUUID } from "node:crypto";

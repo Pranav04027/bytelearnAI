@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, RemoveMessage } from "@langchain/core/messages";
 import {
   Annotation,
   StateGraph,
@@ -31,6 +31,28 @@ const State = Annotation.Root({
 
 const precedingHuman = (messages) =>
   messages.findLast((message) => message.getType() === "human")?.content;
+
+// Only finalize_turn appends an AI message, directly after its own human input.
+// A draft, emitted token, or unmatched human is never a completed pair. In old
+// checkpoints H(failed), H(success), AI belongs only to H(success); do not bridge
+// gaps or pair separately collected lists of humans and answers.
+function completedMessages(messages) {
+  const completed = [];
+  for (let i = 1; i < messages.length; i += 1) {
+    if (messages[i - 1].getType() === "human" && messages[i].getType() === "ai")
+      completed.push(messages[i - 1], messages[i]);
+  }
+  return completed;
+}
+
+function removeExcept(messages, retained) {
+  const ids = new Set(retained.map((message) => message.id));
+  // LangGraph 1.4.13 assigns missing IDs and persists them in lc_kwargs. A short
+  // array would merge, not replace; remove existing IDs without recreating them.
+  return messages
+    .filter((message) => !ids.has(message.id))
+    .map((message) => new RemoveMessage({ id: message.id }));
+}
 
 /**
  * Deliberately narrow English heuristic: short explicit continuations or a
@@ -107,7 +129,11 @@ function sourceData(sources) {
  * Calls with new input always start a fresh turn, including after a failure.
  * Resume/replay and arbitrary Runnable callbacks/config are intentionally not
  * exposed. Concurrent writes to one thread are rejected; distinct threads work
- * concurrently. A thread is bound to one video. Memory is lost on restart.
+ * concurrently. A thread is bound to one video. Persistence uses the injected
+ * checkpointer; only the default test MemorySaver is lost on restart.
+ * Successful active state retains four pairs (not a token limit). A failed turn
+ * may leave one unmatched human, removed on the next prepare_context. Removing
+ * active messages does not erase earlier PostgreSQL checkpoint snapshots.
  */
 export function createConversationalRagGraph({
   retrieve,
@@ -128,17 +154,22 @@ export function createConversationalRagGraph({
   const checkCancelled = () => execution.getStore()?.signal?.throwIfAborted();
 
   const graph = new StateGraph(State)
-    .addNode("prepare_context", (state) => ({
-      messages: [new HumanMessage(state.question)],
-      retrievalQuery: contextualRetrievalQuery(
-        state.question,
-        precedingHuman(state.messages)
-      ),
-      matches: [],
-      answer: "",
-      sources: [],
-      status: "pending",
-    }))
+    .addNode("prepare_context", (state) => {
+      const completed = completedMessages(state.messages);
+      return {
+        // Discard abandoned inputs before contextualizing or adding a new one.
+        // Repeated failed/cancelled turns can leave at most one unmatched human.
+        messages: [...removeExcept(state.messages, completed), new HumanMessage(state.question)],
+        retrievalQuery: contextualRetrievalQuery(
+          state.question,
+          precedingHuman(completed)
+        ),
+        matches: [],
+        answer: "",
+        sources: [],
+        status: "pending",
+      };
+    })
     .addNode("retrieve", async (state) => {
       checkCancelled();
       const matches = await service(() => retrieve(state.videoId, state.retrievalQuery));
@@ -196,7 +227,17 @@ export function createConversationalRagGraph({
       checkCancelled();
       if (state.status !== "validated")
         throw new Error("Cannot finalize an unvalidated turn");
-      return { messages: [new AIMessage(state.answer)], status: "complete" };
+      const human = state.messages.at(-1);
+      if (human?.getType() !== "human" || human.content !== state.question)
+        throw new Error("Cannot finalize without the current human input");
+      const answer = new AIMessage(state.answer);
+      const retained = completedMessages([...state.messages, answer]).slice(-8);
+      // Append the eligible answer and remove expired pairs in the same reducer
+      // update. Only latest active state is bounded; old snapshots remain stored.
+      return {
+        messages: [...removeExcept(state.messages, retained), answer],
+        status: "complete",
+      };
     })
     .addEdge(START, "prepare_context")
     .addEdge("prepare_context", "retrieve")

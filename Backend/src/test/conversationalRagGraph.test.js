@@ -1,3 +1,7 @@
+vi.mock("../graphs/postgresCheckpointer.js", async () => {
+  const { fakePostgresCheckpointerModule } = await import("./postgresTestHelpers.js");
+  return fakePostgresCheckpointerModule();
+});
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemorySaver } from "@langchain/langgraph";
 import { ChatGoogle } from "@langchain/google/node";
@@ -343,7 +347,8 @@ describe("failed turns", () => {
         ["human", "Third question"],
         ["ai", ABSTENTION_RESPONSE],
       ]);
-      expect(recovered.messages).toHaveLength(5);
+      expect(recovered.messages).toHaveLength(4);
+      expect(recovered.messages.some((m) => m.content === "Second question")).toBe(false);
       expect(recovered).toMatchObject({
         answer: ABSTENTION_RESPONSE,
         matches: [],

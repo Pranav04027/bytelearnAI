@@ -1,3 +1,8 @@
+vi.mock("../graphs/postgresCheckpointer.js", async () => {
+  const { fakePostgresCheckpointerModule } = await import("./postgresTestHelpers.js");
+  const fake = fakePostgresCheckpointerModule();
+  return { ...fake, createPostgresCheckpointer: vi.fn(fake.createPostgresCheckpointer) };
+});
 import "./setupEnv.js";
 import { EventEmitter } from "node:events";
 import { createHash, randomUUID } from "node:crypto";
@@ -21,6 +26,7 @@ vi.mock("../services/lexicalTranscriptRetriever.js", () => ({ retrieveTranscript
 import { answerQuestionFromTranscript } from "../controllers/embedding.controllers.js";
 import router from "../routes/embedding.routes.js";
 import { conversationalRagRuntime } from "../graphs/conversationalRagRuntime.js";
+import { createPostgresCheckpointer } from "../graphs/postgresCheckpointer.js";
 import { retrieveTranscriptChunksDense } from "../services/denseTranscriptRetriever.js";
 import { __setClientForTesting, __resetClientForTesting } from "../observability/langsmithTracer.js";
 
@@ -54,6 +60,33 @@ beforeEach(() => fakeGoogleStream(() => ["Supported ", "answer [Source 1]."]));
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); __resetClientForTesting(); });
 
 describe("public conversational answer", () => {
+  it("retains a completed checkpoint if the client disconnects before done; retry adds another turn", async () => {
+    await conversationalRagRuntime.initialize();
+    const saver = await createPostgresCheckpointer.mock.results[0].value.ready;
+    const put = saver.put.bind(saver);
+    const input = body();
+    const call = request(input);
+    let disconnectedAfterCommit = false;
+    vi.spyOn(saver, "put").mockImplementation(async (...args) => {
+      const saved = await put(...args);
+      if (!disconnectedAfterCommit && args[1].channel_values.status === "complete") {
+        disconnectedAfterCommit = true;
+        call.res.destroyed = true;
+        call.res.emit("close");
+      }
+      return saved;
+    });
+    await call.run();
+    expect(disconnectedAfterCommit).toBe(true);
+    expect(call.events().filter(e => ["done", "error"].includes(e.event))).toEqual([]);
+    expect(await aiMessages(input)).toHaveLength(1);
+    expect((await conversationalRagRuntime.getState(thread(input))).values.status).toBe("complete");
+    const retry = request(input);
+    await retry.run();
+    expect(retry.events().at(-1).event).toBe("done");
+    expect(await aiMessages(input)).toHaveLength(2);
+  });
+
   it.each([undefined, null, "", " ", 123, {}, [], "not-a-uuid", "00000000-0000-0000-0000-000000000000", "12345678-1234-4234-7234-123456789012"])(
     "rejects invalid conversationId %j before retrieval or SSE", async (conversationId) => {
       const call = request(body({ conversationId }));
