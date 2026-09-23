@@ -85,10 +85,12 @@ export const buildGroundedMessages = (question, matches, { previousQuestion } = 
  * @param {string} [params.previousQuestion] - follow-up context, never evidence
  * @param {(text: string) => void} [params.onToken] - streamed token callback
  * @param {() => boolean} [params.isClientClosed] - client disconnect check
+ * @param {AbortSignal} [params.signal] - cancels generation without returning a draft
  * @returns {Promise<{ answer: string, sources: Array }>}
  */
 export async function streamGroundedAnswer(params) {
   const answer = await streamGroundedAnswerText(params);
+  params.signal?.throwIfAborted();
   const sources = await validateGroundedCitations(answer, params.matches);
   return { answer, sources };
 }
@@ -101,7 +103,9 @@ export async function streamGroundedAnswerText({
   previousQuestion,
   onToken,
   isClientClosed,
+  signal,
 }) {
+  signal?.throwIfAborted();
   if (!question || !matches || matches.length === 0) {
     throw new Error("Question and retrieval matches are required to generate an answer");
   }
@@ -109,15 +113,21 @@ export async function streamGroundedAnswerText({
   const messages = buildGroundedMessages(question, matches, { previousQuestion });
   let answer = "";
 
-  for await (const text of answerChatModel.stream(messages)) {
+  const stream = signal
+    ? answerChatModel.stream(messages, { signal })
+    : answerChatModel.stream(messages);
+  for await (const text of stream) {
+    signal?.throwIfAborted();
     if (isClientClosed && isClientClosed()) {
-      break;
+      throw new DOMException("Client disconnected", "AbortError");
     }
 
     answer += text;
     if (onToken) onToken(text);
   }
 
+  signal?.throwIfAborted();
+  if (isClientClosed?.()) throw new DOMException("Client disconnected", "AbortError");
   const finalAnswer = answer.trim();
 
   if (!finalAnswer) {

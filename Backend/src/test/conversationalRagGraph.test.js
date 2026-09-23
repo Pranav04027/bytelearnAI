@@ -448,6 +448,72 @@ describe("failed turns", () => {
   });
 });
 
+describe("cancellation boundaries", () => {
+  it("rejects pre-aborted work without retrieval and leaves the thread available", async () => {
+    const { graph, retrieve } = fixture();
+    const controller = new AbortController();
+    controller.abort();
+    await expect(graph.invoke(input(), config("cancel", { signal: controller.signal }))).rejects.toThrow();
+    expect(retrieve).not.toHaveBeenCalled();
+    expect((await graph.invoke(input(), config("cancel"))).status).toBe("complete");
+  });
+
+  it.each(["invoke", "stream"])("%s does not validate or finalize an aborted draft, and releases the guard", async (method) => {
+    const controller = new AbortController();
+    const generate = vi.fn(async ({ onToken, signal }) => {
+      expect(signal).toBe(controller.signal);
+      onToken?.("PRIVATE_PARTIAL");
+      controller.abort();
+      // A non-cooperative provider returning a draft cannot bypass the graph guard.
+      return "PRIVATE_PARTIAL";
+    });
+    const { graph, validate } = fixture({ generate });
+    const onToken = vi.fn();
+    const options = config("cancel", { signal: controller.signal, onToken });
+    await expect(method === "invoke" ? graph.invoke(input(), options) : collect(graph.stream(input(), options))).rejects.toThrow();
+    expect(onToken).toHaveBeenCalledWith("PRIVATE_PARTIAL");
+    expect(validate).not.toHaveBeenCalled();
+    const state = (await graph.getState(config("cancel"))).values;
+    expect(state.messages.filter((m) => m.getType() === "ai")).toEqual([]);
+    expect(state).not.toHaveProperty("signal");
+    expect(state).not.toHaveProperty("onToken");
+    generate.mockResolvedValueOnce("Recovered [Source 1]");
+    expect((await graph.invoke(input("Retry"), config("cancel"))).status).toBe("complete");
+  });
+
+  it("does not finalize if cancellation arrives during citation validation", async () => {
+    const controller = new AbortController();
+    const validate = vi.fn(async () => { controller.abort(); return []; });
+    const { graph } = fixture({ validate });
+    await expect(graph.invoke(input(), config("cancel", { signal: controller.signal }))).rejects.toThrow();
+    expect(validate).toHaveBeenCalledTimes(1);
+    expect((await graph.getState(config("cancel"))).values.messages.filter((m) => m.getType() === "ai")).toEqual([]);
+    validate.mockResolvedValueOnce([]);
+    expect((await graph.invoke(input(), config("cancel"))).status).toBe("complete");
+  });
+
+  it("ignores late retrieval after cancellation, including after a same-thread retry completes", async () => {
+    let release;
+    const blocked = new Promise((resolve) => { release = resolve; });
+    const retrieve = vi.fn().mockImplementationOnce(() => blocked).mockResolvedValue([chunk("NEW_EVIDENCE")]);
+    const { graph, generate } = fixture({ retrieve });
+    const controller = new AbortController();
+    const running = graph.invoke(input(), config("cancel", { signal: controller.signal }));
+    const rejected = expect(running).rejects.toThrow();
+    await vi.waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+    controller.abort();
+    await rejected;
+    expect(generate).not.toHaveBeenCalled();
+    const next = await graph.invoke(input("Retry"), config("cancel"));
+    release([chunk("STALE_EVIDENCE")]);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const state = (await graph.getState(config("cancel"))).values;
+    expect(messages(state)).toEqual(messages(next));
+    expect(state.matches[0].content).toBe("NEW_EVIDENCE");
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("production bindings and tracing privacy", () => {
   it("keeps partial model output private on failure while retaining the intentional manual error span", async () => {
     vi.stubEnv("GEMINI_API_KEY", "fake-key");

@@ -2,6 +2,7 @@ import "./setupEnv.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { fakeGoogleStream } from "./modelTestHelpers.js";
+import { answerChatModel } from "../models/answerChatModel.js";
 import { buildGroundedMessages, streamGroundedAnswer, validateCitations, ABSTENTION_RESPONSE } from "../services/ragAnswerService.js";
 
 const matches = [
@@ -56,6 +57,26 @@ describe("grounded answer service", () => {
   it("rejects missing evidence before invoking the model", async () => {
     const provider = fakeGoogleStream(() => ["Must not run"]);
     await expect(streamGroundedAnswer({ question: "Question?", matches: [] })).rejects.toThrow("retrieval matches are required");
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("never returns a partial success if the model silently stops after cancellation", async () => {
+    const controller = new AbortController();
+    vi.spyOn(answerChatModel, "stream").mockImplementation(async function* (_messages, { signal }) {
+      expect(signal).toBe(controller.signal);
+      yield "partial";
+      controller.abort();
+    });
+    const onToken = vi.fn();
+    await expect(streamGroundedAnswer({ question: "Question?", matches, signal: controller.signal, onToken })).rejects.toThrow();
+    expect(onToken).toHaveBeenCalledExactlyOnceWith("partial");
+  });
+
+  it("rejects an already aborted request before invoking the model", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const provider = fakeGoogleStream(() => ["Must not run"]);
+    await expect(streamGroundedAnswer({ question: "Question?", matches, signal: controller.signal })).rejects.toThrow();
     expect(provider).not.toHaveBeenCalled();
   });
 });

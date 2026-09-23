@@ -77,6 +77,36 @@ describe("answer chat model boundary", () => {
     await expect(createAnswerChatModel().invoke(messages)).rejects.toMatchObject({ statusCode: 500 });
   });
 
+  it("propagates abort through the installed ChatGoogle Request signal and rejects partial HTTP text", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "fake-provider-key");
+    const controller = new AbortController();
+    let requestSignal;
+    vi.stubGlobal("fetch", vi.fn(async (request) => {
+      requestSignal = request.signal;
+      return new Response(new ReadableStream({
+        start(stream) {
+          stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(response("partial"))}\n\n`));
+          request.signal.addEventListener("abort", () => stream.error(request.signal.reason), { once: true });
+        },
+      }), { headers: { "Content-Type": "text/event-stream" } });
+    }));
+    const iterator = createAnswerChatModel().stream(messages, { signal: controller.signal });
+    expect((await iterator.next()).value).toBe("partial");
+    controller.abort();
+    expect(requestSignal.aborted).toBe(true);
+    await expect(iterator.next()).rejects.toThrow();
+  });
+
+  it("does not treat silent provider termination on abort as successful completion", async () => {
+    const controller = new AbortController();
+    const model = { stream: async function* (_messages, { signal }) {
+      expect(signal).toBe(controller.signal);
+      yield new AIMessageChunk("partial");
+      controller.abort();
+    } };
+    await expect(collect(createAnswerChatModel({ model }).stream(messages, { signal: controller.signal }))).rejects.toThrow();
+  });
+
   it("propagates stream errors and closes an interrupted iterator", async () => {
     const closed = vi.fn();
     const model = { stream: async function* () {

@@ -54,14 +54,21 @@ export function createAnswerChatModel({ model } = {}) {
     return chatModel;
   };
 
-  const stream = async function* (messages) {
-      const chunks = await getModel().stream(messages);
+  const stream = async function* (messages, { signal } = {}) {
+      signal?.throwIfAborted();
+      // core 1.2.11 forwards RunnableConfig.signal to ChatGoogle 0.2.0's
+      // Request signal. Preserve the iterator-level tracing shield above.
+      const chunks = await (signal
+        ? getModel().stream(messages, { signal })
+        : getModel().stream(messages));
       for await (const chunk of chunks) {
+        signal?.throwIfAborted();
         // LangChain's text accessor handles both strings and text content blocks,
         // excluding non-text blocks and metadata-only chunks.
         const text = chunk.text;
         if (text) yield text;
       }
+      signal?.throwIfAborted();
   };
 
   return {

@@ -1,5 +1,6 @@
 // Configure a test-only key before the lazy answer model is first invoked.
 import "./setupEnv.js";
+import { randomUUID } from "node:crypto";
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fakeGoogleStream, recordTraces } from "./modelTestHelpers.js";
@@ -58,6 +59,7 @@ const responseRecorder = () => {
   let statusCode = 200;
   let statusResponse = null;
   const res = {
+    on: () => {}, off: () => {},
     setHeader: vi.fn(), flushHeaders: vi.fn(), writableEnded: false,
     write: (text) => { writes.push(text); return true; },
     end: vi.fn(() => { res.writableEnded = true; }),
@@ -87,7 +89,7 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
     const stream = vi.spyOn(answerChatModel, "stream");
     const { res, events } = responseRecorder();
     const next = vi.fn();
-    await answerQuestionFromTranscript({ body: { question: "Valid question?" }, on: () => {} }, res, next);
+    await answerQuestionFromTranscript({ body: { conversationId: randomUUID(), question: "Valid question?" }, on: () => {}, off: () => {} }, res, next);
     expect(res.getStatus()).toBe(400);
     expect(res.getStatusResponse()).toEqual({
       success: false,
@@ -102,7 +104,7 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
     const stream = vi.spyOn(answerChatModel, "stream");
     const { res, events } = responseRecorder();
     const next = vi.fn();
-    await answerQuestionFromTranscript({ body: { videoId: "v1", question: "   " }, on: () => {} }, res, next);
+    await answerQuestionFromTranscript({ body: { conversationId: randomUUID(), videoId: "v1", question: "   " }, on: () => {}, off: () => {} }, res, next);
     expect(res.getStatus()).toBe(400);
     expect(res.getStatusResponse()).toEqual({
       success: false,
@@ -118,7 +120,7 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
     const stream = vi.spyOn(answerChatModel, "stream");
     const { res, events } = responseRecorder();
     const next = vi.fn();
-    await answerQuestionFromTranscript({ body: { videoId: "v1", question: "Unsupported?" }, on: () => {} }, res, next);
+    await answerQuestionFromTranscript({ body: { conversationId: randomUUID(), videoId: "v1", question: "Unsupported?" }, on: () => {}, off: () => {} }, res, next);
     expect(next).not.toHaveBeenCalled();
     expect(stream).not.toHaveBeenCalled();
     expect(events()).toEqual([
@@ -136,7 +138,7 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
     });
     const { res, events } = responseRecorder();
     const next = vi.fn();
-    await answerQuestionFromTranscript({ body: { videoId: "v1", question: "Question?" }, on: () => {} }, res, next);
+    await answerQuestionFromTranscript({ body: { conversationId: randomUUID(), videoId: "v1", question: "Question?" }, on: () => {}, off: () => {} }, res, next);
     expect(events().map((event) => event.event)).toEqual(["start", "token", "error"]);
     expect(res.end).toHaveBeenCalledTimes(1);
     expect(next).not.toHaveBeenCalled();
@@ -149,6 +151,7 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
 
     const writes = [];
     const res = {
+    on: () => {}, off: () => {},
       setHeader: () => {},
       flushHeaders: () => {},
       write: (s) => {
@@ -161,9 +164,9 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
       writableEnded: false,
     };
     const req = {
-      body: { videoId: "vid-9", question: "what is recursion?" },
+      body: { conversationId: randomUUID(), videoId: "vid-9", question: "what is recursion?" },
       user: { id: "user-7" },
-      on: () => {},
+      on: () => {}, off: () => {},
     };
     const next = vi.fn();
 
@@ -211,15 +214,18 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
     );
     expect(byName["groundedGeneration"].parent_run_id).toBe(root.id);
     expect(byName["citationValidation"].parent_run_id).toBe(
-      byName["groundedGeneration"].id
+      root.id
     );
 
     // Safe metadata on root; no secrets.
     expect(root.inputs.videoId).toBe("vid-9");
-    expect(root.inputs.userId).toBe("user-7");
+    expect(root.inputs.userId).toBeUndefined();
+    expect(root.inputs.questionLength).toBe("what is recursion?".length);
+    expect(root.inputs.question).toBeUndefined();
     expect(root.extra.metadata.model).toBe("gemini-2.5-flash-lite");
     expect(root.extra.metadata.environment).toBeDefined();
-    expect(byName["groundedGeneration"].run_type).toBe("llm");
+    expect(byName["groundedGeneration"].run_type).toBe("chain");
+    expect(created).toHaveLength(7);
     expect(byName["denseRetrieval"].run_type).toBe("retriever");
 
     // Retriever never logs raw transcript content.
@@ -237,7 +243,7 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
   it("anonymous successful generation emits start, ordered tokens, and done with valid source metadata", async () => {
     const { res, events } = responseRecorder();
     const next = vi.fn();
-    await answerQuestionFromTranscript({ body: { videoId: "v1", question: "What is it?" }, on: () => {} }, res, next);
+    await answerQuestionFromTranscript({ body: { conversationId: randomUUID(), videoId: "v1", question: "What is it?" }, on: () => {}, off: () => {} }, res, next);
     expect(next).not.toHaveBeenCalled();
     const ev = events();
     expect(ev.map((e) => e.event)).toEqual(["start", "token", "token", "done"]);
@@ -259,6 +265,7 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
     // No injected client and LANGSMITH_TRACING is not "true".
     const writes = [];
     const res = {
+    on: () => {}, off: () => {},
       setHeader: () => {},
       flushHeaders: () => {},
       write: (s) => {
@@ -271,9 +278,9 @@ describe("ByteLearnAnswerRequest controller trace (real orchestration)", () => {
       writableEnded: false,
     };
     const req = {
-      body: { videoId: "vid-9", question: "what is recursion?" },
+      body: { conversationId: randomUUID(), videoId: "vid-9", question: "what is recursion?" },
       user: { id: "user-7" },
-      on: () => {},
+      on: () => {}, off: () => {},
     };
     const next = vi.fn();
 

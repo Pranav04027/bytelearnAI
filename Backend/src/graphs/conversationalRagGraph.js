@@ -100,7 +100,7 @@ function sourceData(sources) {
 
 /**
  * Compile an isolated graph with injected services. Production calls this once.
- * invoke({ videoId, question }, { configurable: { thread_id }, onToken? })
+ * invoke({ videoId, question }, { configurable: { thread_id }, onToken?, signal? })
  * stream(same arguments) yields node updates, NOT model tokens. onToken is the
  * separate model-token channel. Neither is connected to HTTP here.
  *
@@ -125,6 +125,7 @@ export function createConversationalRagGraph({
   // Restore only the caller's manual trace around service calls. Graph/node
   // instrumentation runs in a disabled context; no global flags are changed.
   const service = (fn) => withRunTree(execution.getStore()?.manualRun, fn);
+  const checkCancelled = () => execution.getStore()?.signal?.throwIfAborted();
 
   const graph = new StateGraph(State)
     .addNode("prepare_context", (state) => ({
@@ -138,11 +139,12 @@ export function createConversationalRagGraph({
       sources: [],
       status: "pending",
     }))
-    .addNode("retrieve", async (state) => ({
-      matches: evidenceData(
-        await service(() => retrieve(state.videoId, state.retrievalQuery))
-      ),
-    }))
+    .addNode("retrieve", async (state) => {
+      checkCancelled();
+      const matches = await service(() => retrieve(state.videoId, state.retrievalQuery));
+      checkCancelled();
+      return { matches: evidenceData(matches) };
+    })
     .addConditionalEdges("retrieve", (state) =>
       state.matches.length > 0 ? "generate" : "abstain"
     )
@@ -152,6 +154,7 @@ export function createConversationalRagGraph({
       status: "validated",
     }))
     .addNode("generate", async (state) => {
+      checkCancelled();
       const answer = await service(() =>
         trace(
           "groundedGeneration",
@@ -164,6 +167,7 @@ export function createConversationalRagGraph({
                   ? undefined
                   : precedingHuman(state.messages.slice(0, -1)),
               onToken: execution.getStore()?.onToken,
+              signal: execution.getStore()?.signal,
             }),
           {
             runType: "chain",
@@ -177,17 +181,19 @@ export function createConversationalRagGraph({
           }
         )
       );
+      checkCancelled();
       if (typeof answer !== "string" || !answer.trim())
         throw new Error("Generation returned no answer");
       return { answer: answer.trim(), status: "draft" };
     })
-    .addNode("validate_citations", async (state) => ({
-      sources: sourceData(
-        await service(() => validate(state.answer, state.matches))
-      ),
-      status: "validated",
-    }))
+    .addNode("validate_citations", async (state) => {
+      checkCancelled();
+      const sources = await service(() => validate(state.answer, state.matches));
+      checkCancelled();
+      return { sources: sourceData(sources), status: "validated" };
+    })
     .addNode("finalize_turn", (state) => {
+      checkCancelled();
       if (state.status !== "validated")
         throw new Error("Cannot finalize an unvalidated turn");
       return { messages: [new AIMessage(state.answer)], status: "complete" };
@@ -231,10 +237,12 @@ export function createConversationalRagGraph({
       configurable: { thread_id: threadId },
       callbacks: [],
       durability: "sync",
+      ...(options?.signal ? { signal: options.signal } : {}),
     };
   }
 
   async function begin(input, options) {
+    options?.signal?.throwIfAborted();
     const config = configFor(options);
     const { question, videoId } = input ?? {};
     if (
@@ -253,6 +261,7 @@ export function createConversationalRagGraph({
     activeThreads.add(id);
     try {
       const previous = await graph.getState(config);
+      options?.signal?.throwIfAborted();
       if (previous.values.videoId && previous.values.videoId !== videoId)
         throw new Error("Use a new thread for a different video");
       return {
@@ -271,6 +280,7 @@ export function createConversationalRagGraph({
       const context = {
         manualRun: getCurrentRunTree(true),
         onToken: options?.onToken,
+        signal: options?.signal,
       };
       const turn = await begin(input, options);
       try {
@@ -285,6 +295,7 @@ export function createConversationalRagGraph({
       const context = {
         manualRun: getCurrentRunTree(true),
         onToken: options?.onToken,
+        signal: options?.signal,
       };
       const turn = await begin(input, options);
       let iterator;

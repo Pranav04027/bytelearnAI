@@ -189,12 +189,69 @@ function AnswerContent({ content, sources, onSeekToMs }) {
   );
 }
 
-const VideoChatBody = ({ videoId, onSeekToMs }) => {
+// sessionStorage preserves the resume ID across refresh, not visible messages.
+// Backend context survives only while its in-memory process remains alive.
+// This public UUID carries no identity claims and is not authenticated ownership.
+function conversationIdFor(videoId, reset = false) {
+  const key = `bytelearn:conversation:${videoId}`;
+  const saved = reset ? null : sessionStorage.getItem(key);
+  if (saved && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(saved)) return saved;
+  const id = crypto.randomUUID();
+  sessionStorage.setItem(key, id);
+  return id;
+}
+
+const VideoConversationBody = ({ videoId, onSeekToMs }) => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const scrollRef = useRef(null);
+  const activeRequest = useRef(null);
+  const nextMessageId = useRef(0);
+  const [chatError, setChatError] = useState("");
+  const [identityUnavailable, setIdentityUnavailable] = useState(false);
+
+  useEffect(() => {
+    // Desktop panel and mobile drawer can both be mounted for the same video.
+    // Reset both before replacing their shared sessionStorage resume identifier.
+    const onReset = ({ detail }) => {
+      if (detail.videoId !== videoId) return;
+      if (detail.phase === "abort") {
+        activeRequest.current?.abort();
+        activeRequest.current = null;
+        setMessages([]);
+        setInputVal("");
+        setIsLoading(false);
+        setChatError("");
+        setIdentityUnavailable(true);
+      } else {
+        setIdentityUnavailable(Boolean(detail.error));
+        setChatError(detail.error || "");
+      }
+    };
+    window.addEventListener("bytelearn:conversation-reset", onReset);
+    return () => {
+      window.removeEventListener("bytelearn:conversation-reset", onReset);
+      activeRequest.current?.abort();
+      activeRequest.current = null;
+    };
+  }, [videoId]);
+
+  const newConversation = () => {
+    const announce = (detail) => window.dispatchEvent(new CustomEvent(
+      "bytelearn:conversation-reset", { detail: { videoId, ...detail } }
+    ));
+    announce({ phase: "abort" });
+    let error = "";
+    try {
+      conversationIdFor(videoId, true);
+    } catch {
+      // Never reuse the old stored ID if reset could not replace it.
+      error = "Unable to start a conversation. Allow session storage and reload this page.";
+    }
+    announce({ phase: "ready", error });
+  };
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -206,103 +263,99 @@ const VideoChatBody = ({ videoId, onSeekToMs }) => {
   const handleSend = async (e) => {
     e.preventDefault();
     const question = inputVal.trim();
-    if (!question || isLoading) return;
+    if (!question || activeRequest.current || identityUnavailable) return;
 
-    setInputVal("");
-    setMessages((prev) => [...prev, { role: "user", content: question }]);
-    setIsLoading(true);
-
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    const current = () => activeRequest.current === controller && !controller.signal.aborted;
+    let reader;
+    const aiMessageId = `ai-${++nextMessageId.current}`;
+    let conversationId;
     try {
-      const aiMessageId = Date.now();
+      try {
+        conversationId = conversationIdFor(videoId);
+      } catch {
+        setIdentityUnavailable(true);
+        throw new Error("Unable to start a conversation. Allow session storage and reload this page.");
+      }
+      setChatError("");
+      setInputVal("");
       setMessages((prev) => [
         ...prev,
+        { role: "user", content: question },
         { id: aiMessageId, role: "ai", content: "" },
       ]);
-
+      setIsLoading(true);
       const baseURL = axiosInstance.defaults.baseURL || "/api/v1";
-      const url = `${baseURL}/embeddings/answer`;
-
-      const response = await fetch(url, {
+      const response = await fetch(`${baseURL}/embeddings/answer`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ videoId, question }),
-        signal: new AbortController().signal,
+        body: JSON.stringify({ videoId, question, conversationId }),
+        signal: controller.signal,
       });
-
       if (!response.ok) {
-        throw new Error("Failed to get response");
+        throw new Error(response.status === 409
+          ? "A question is already running for this conversation. Please try again shortly."
+          : "Failed to get response. Please try again.");
       }
-
-      const reader = response.body.getReader();
+      reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = "";
       let aiContent = "";
+      let completed = false;
+      const updateAnswer = (patch) => {
+        if (current()) setMessages((prev) => prev.map((m) =>
+          m.id === aiMessageId ? { ...m, ...patch } : m
+        ));
+      };
 
-      while (true) {
+      while (!completed && current()) {
         const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const events = chunk.split("\n\n");
-
-        for (const eventStr of events) {
-          if (!eventStr.trim()) continue;
-          const lines = eventStr.split("\n");
+        if (!current()) break;
+        // Both UTF-8 code points and SSE frames can straddle network reads.
+        buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+        let boundary;
+        while (!completed && (boundary = /\r?\n\r?\n/.exec(buffer))) {
+          const frame = buffer.slice(0, boundary.index);
+          buffer = buffer.slice(boundary.index + boundary[0].length);
           let eventType = "message";
-          let eventData = "";
-
-          for (const line of lines) {
-            if (line.startsWith("event:")) {
-              eventType = line.replace("event:", "").trim();
-            } else if (line.startsWith("data:")) {
-              eventData = line.replace("data:", "").trim();
-            }
+          const data = [];
+          for (const line of frame.split(/\r?\n/)) {
+            if (line.startsWith("event:")) eventType = line.slice(6).trim();
+            else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
           }
-
+          if (!["token", "done", "error"].includes(eventType)) continue;
+          const parsed = JSON.parse(data.join("\n"));
           if (eventType === "token") {
-            try {
-              const parsed = JSON.parse(eventData);
-              aiContent += parsed.text;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === aiMessageId ? { ...m, content: aiContent } : m
-                )
-              );
-            } catch (e) {
-              // ignore parse errors for partial chunks
-            }
+            if (typeof parsed.text !== "string") throw new Error("Invalid answer stream");
+            aiContent += parsed.text;
+            updateAnswer({ content: aiContent });
           } else if (eventType === "done") {
-            try {
-              const parsed = JSON.parse(eventData);
-              const doneSources = Array.isArray(parsed?.sources)
-                ? parsed.sources
-                : [];
-              if (doneSources.length > 0) {
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === aiMessageId ? { ...m, sources: doneSources } : m
-                  )
-                );
-              }
-            } catch (_) {
-              // ignore parse errors for partial chunks
-            }
-            break;
-          } else if (eventType === "error") {
-            throw new Error("Stream error");
+            if (typeof parsed.answer !== "string") throw new Error("Invalid answer stream");
+            completed = true;
+            updateAnswer({ content: parsed.answer, sources: Array.isArray(parsed.sources) ? parsed.sources : [] });
+          } else {
+            throw new Error("Sorry, something went wrong. Please try again.");
           }
         }
+        if (done && !completed) throw new Error("The answer stream ended early. Please try again.");
       }
     } catch (error) {
-      console.error("Chat error:", error);
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", content: "Sorry, something went wrong. Please try again." },
-      ]);
+      if (current()) {
+        // Replace the draft, so a failed stream cannot look like a complete answer.
+        setMessages((prev) => prev.filter((m) => m.id !== aiMessageId));
+        setChatError(error.message || "Unable to start a conversation.");
+      }
     } finally {
-      setIsLoading(false);
+      if (reader) {
+        try { await reader.cancel(); } catch { /* The transport may already be closed. */ }
+        reader.releaseLock();
+      }
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        setIsLoading(false);
+      }
     }
   };
 
@@ -315,6 +368,12 @@ const VideoChatBody = ({ videoId, onSeekToMs }) => {
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      <div className="px-4 py-2 bg-white border-b border-slate-200">
+        <button type="button" onClick={newConversation}
+          className="text-sm text-[#994d51] rounded-lg px-2 py-1 hover:bg-[#f3e7e8] focus:outline-none focus:ring-2 focus:ring-[#994d51]/50">
+          New conversation
+        </button>
+      </div>
       <div ref={scrollRef} className="no-scrollbar flex-1 overflow-y-auto p-4 space-y-4 bg-[#fcf8f8]">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3 p-6 text-center">
@@ -369,6 +428,7 @@ const VideoChatBody = ({ videoId, onSeekToMs }) => {
       </div>
 
       <div className="p-4 bg-white border-t border-slate-200 sticky bottom-0 z-10 rounded-b-2xl">
+        {chatError && <p role="alert" className="text-sm text-red-700 mb-2">{chatError}</p>}
         <form onSubmit={handleSend} className="flex gap-2">
           <input
             type="text"
@@ -380,7 +440,7 @@ const VideoChatBody = ({ videoId, onSeekToMs }) => {
           />
           <button
             type="submit"
-            disabled={!inputVal.trim() || isLoading}
+            disabled={!inputVal.trim() || isLoading || identityUnavailable}
             className="bg-[#994d51] text-white rounded-full px-4 py-2.5 text-sm font-medium hover:bg-[#7a3d41] disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-[#994d51]/50 shadow-sm flex items-center gap-1.5"
           >
             <Send className="w-4 h-4" />
@@ -391,5 +451,9 @@ const VideoChatBody = ({ videoId, onSeekToMs }) => {
     </div>
   );
 };
+
+// Changing videos unmounts the old request and clears visible state. Returning
+// to a video reuses its stored ID; no history retrieval endpoint is involved.
+const VideoChatBody = (props) => <VideoConversationBody key={props.videoId} {...props} />;
 
 export default VideoChatBody;

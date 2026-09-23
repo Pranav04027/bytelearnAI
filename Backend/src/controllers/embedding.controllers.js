@@ -3,13 +3,12 @@ import {
   embeddingModel,
   geminiEmbeddingModel,
 } from "../utils/geminiEmbedding.js";
-import { retrieveHybridTranscriptChunks } from "../services/hybridTranscriptRetriever.js";
+import { createHash } from "node:crypto";
+import { conversationalRagRuntime } from "../graphs/conversationalRagRuntime.js";
 import {
-  streamGroundedAnswer,
   ABSTENTION_RESPONSE,
   ANSWER_MODEL_NAME,
 } from "../services/ragAnswerService.js";
-import { ANSWER_GENERATION_CONFIG } from "../models/answerChatModel.js";
 import {
   trace,
   randomUUID,
@@ -28,8 +27,7 @@ const initializeSse = (res) => {
 };
 
 const writeSseEvent = (res, event, data) => {
-  res.write(`event: ${event}\n`);
-  res.write(`data: ${JSON.stringify(data)}\n\n`);
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 };
 
 const summarizeError = (error) => ({
@@ -98,128 +96,102 @@ const chunkAndEmbed = async (req, res, next) => {
   }
 };
 
+// Public UUIDs are unguessable resume identifiers, not authenticated ownership.
+// Hash a tuple to bind the identifier to a video without logging the raw UUID.
+// This admission guard protects ONE backend process; it is not a distributed lock.
+const activeAnswerThreads = new Set();
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const answerQuestionFromTranscript = async (req, res, next) => {
   let streamOpened = false;
-  let clientClosed = false;
-
-  req.on("close", () => {
-    clientClosed = true;
-  });
-
-  // Safe, non-secret context for the root trace. Never include req/res,
-  // headers, tokens, cookies, or passwords here.
-  const requestId = randomUUID();
-  const userId = req.user?.id || null;
-  const { videoId, question } = req.body || {};
+  let terminated = false;
+  let acquiredThread;
+  const controller = new AbortController();
+  const { signal } = controller;
+  const disconnect = () => {
+    terminated = true;
+    controller.abort();
+  };
+  // IncomingMessage 'close' also fires after a normally consumed request body.
+  // Response close and request aborted identify the actual transport lifetime.
+  req.on("aborted", disconnect);
+  res.on("close", disconnect);
+  if (req.aborted || res.destroyed) disconnect();
+  const canWrite = () => !terminated && !signal.aborted && !res.destroyed && !res.writableEnded;
+  const send = (event, payload) => {
+    if (canWrite()) writeSseEvent(res, event, payload);
+  };
+  const finish = (event, payload) => {
+    if (!canWrite()) return;
+    send(event, payload);
+    terminated = true;
+    res.end();
+  };
+  const { videoId, question, conversationId } = req.body || {};
   const cleanQuestion = typeof question === "string" ? question.trim() : "";
 
-  const rootInputs = {
-    videoId,
-    question: cleanQuestion,
-    userId,
-    mode: "hybrid",
-  };
-  const rootMetadata = {
-    environment: process.env.NODE_ENV || "development",
-    model: ANSWER_MODEL_NAME,
-    project: "bytelearn",
-    requestId,
-    tracingEnabled: isLangSmithEnabled(),
-  };
-  const rootTags = ["bytelearn", "answer", "hybrid"];
-
   try {
-    return await trace( "ByteLearnAnswerRequest",
-      async () => {
-        if (!videoId || !cleanQuestion) {
-          return res.status(400).json({
-            success: false,
-            message: "videoId and question are required",
-          });
-        }
-
-        if (!cleanQuestion) {
-          return res.status(400).json({
-            success: false,
-            message: "question cannot be empty",
-          });
-        }
-
-        ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
-
-        initializeSse(res);
-        streamOpened = true;
-        writeSseEvent(res, "start", { videoId });
-
-        const matches = await retrieveHybridTranscriptChunks(
-          videoId,
-          cleanQuestion
-        );
-
-        if (!matches || matches.length === 0) {
-          writeSseEvent(res, "token", { text: ABSTENTION_RESPONSE });
-          writeSseEvent(res, "done", {
-            answer: ABSTENTION_RESPONSE,
-            sources: [],
-          });
-          return res.end();
-        }
-
-        const genStart = Date.now();
-        const { answer, sources } = await trace(
-          "groundedGeneration",
-          () =>
-            streamGroundedAnswer({
-              question: cleanQuestion,
-              matches,
-              isClientClosed: () => clientClosed,
-              onToken: (text) => {
-                writeSseEvent(res, "token", { text });
-              },
-            }),
-          {
-            runType: "llm",
-            inputs: {
-              question: cleanQuestion,
-              matchCount: matches.length,
-              model: ANSWER_MODEL_NAME,
-            },
-            outputs: (r) => ({
-              abstained: r.answer === ABSTENTION_RESPONSE,
-              answerLength: r.answer.length,
-              citedSourceCount: r.sources.length,
-              latencyMs: Date.now() - genStart,
-              model: ANSWER_MODEL_NAME,
-            }),
-            invocationParams: {
-              model: ANSWER_MODEL_NAME,
-              ...ANSWER_GENERATION_CONFIG,
-            },
-          }
-        );
-
-        if (!clientClosed) {
-          writeSseEvent(res, "done", { answer, sources });
-          res.end();
-        }
-
-        return;
-      },
-      {
-        inputs: rootInputs,
-        metadata: rootMetadata,
-        tags: rootTags,
+    return await trace("ByteLearnAnswerRequest", async () => {
+      if (!canWrite()) return;
+      if (typeof videoId !== "string" || !videoId.trim() || !cleanQuestion) {
+        return res.status(400).json({ success: false, message: "videoId and question are required" });
       }
-    );
+      if (typeof conversationId !== "string" || !UUID_RE.test(conversationId)) {
+        return res.status(400).json({ success: false, message: "conversationId must be a valid UUID" });
+      }
+      const threadId = createHash("sha256")
+        .update(JSON.stringify([videoId, conversationId.toLowerCase()]))
+        .digest("hex");
+      if (activeAnswerThreads.has(threadId)) {
+        return res.status(409).json({ success: false, message: "A question is already running for this conversation. Try again when it finishes." });
+      }
+      activeAnswerThreads.add(threadId);
+      acquiredThread = threadId;
+      ensureModel(embeddingModel, "GEMINI_API_KEY is not configured");
+      initializeSse(res);
+      streamOpened = true;
+      send("start", { videoId });
+      let emittedText = false;
+      const result = await conversationalRagRuntime.invoke(
+        { videoId, question: cleanQuestion },
+        {
+          configurable: { thread_id: threadId },
+          signal,
+          onToken: (text) => {
+            if (typeof text !== "string" || !text) return;
+            emittedText = true;
+            send("token", { text });
+          },
+        }
+      );
+      signal.throwIfAborted();
+      // The deterministic abstention node does not call the model-token channel.
+      if (!emittedText && result.answer === ABSTENTION_RESPONSE) {
+        send("token", { text: result.answer });
+      }
+      // Explicit projection: never send messages, matches, checkpoints or config.
+      finish("done", { answer: result.answer, sources: result.sources });
+    }, {
+      inputs: { videoId: typeof videoId === "string" ? videoId : null, questionLength: cleanQuestion.length, mode: "hybrid" },
+      metadata: {
+        environment: process.env.NODE_ENV || "development",
+        model: ANSWER_MODEL_NAME,
+        project: "bytelearn",
+        requestId: randomUUID(),
+        tracingEnabled: isLangSmithEnabled(),
+      },
+      tags: ["bytelearn", "answer", "hybrid"],
+    });
   } catch (error) {
-    if (streamOpened && !res.writableEnded) {
-      writeSseEvent(res, "error", {
-        message: error.message || "Failed to stream answer",
-      });
-      return res.end();
+    if (!canWrite()) return;
+    if (streamOpened) {
+      return finish("error", { message: "Failed to stream answer" });
     }
-
     next(error);
+  } finally {
+    req.off("aborted", disconnect);
+    res.off("close", disconnect);
+    if (acquiredThread) activeAnswerThreads.delete(acquiredThread);
   }
 };
 
