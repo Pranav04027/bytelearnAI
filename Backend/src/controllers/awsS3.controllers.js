@@ -1,6 +1,7 @@
 import { prisma } from "../db/index.js";
 import {
   PUBLIC_MEDIA_TYPES,
+  PRIVATE_MEDIA_TYPES,
   buildPublicS3Url,
   buildS3Key,
   generateUploadUrl,

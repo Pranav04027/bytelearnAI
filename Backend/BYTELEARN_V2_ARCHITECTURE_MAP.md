@@ -1,599 +1,277 @@
-# ByteLearn V2: Final Architecture Map
+# ByteLearn: final implemented architecture
 
-Design date: 2026-09-21
+Stage 10 reconciliation, 2026-09-24, against production code at `eedc0e9` plus
+the bounded S3 import repair recorded in the root evidence summary. This replaces
+the earlier target map with the implemented architecture. Historical stage evidence
+remains unchanged. [Setup](README.md), [API](API.md#embeddings--ai-qa)
+and [acceptance](docs/stage-9-acceptance.md) describe distinct configuration,
+transport and verification boundaries.
 
-Status: target design for the agreed reduced-scope release, not a claim that all
-components are implemented. The current production answer still uses the raw
-Gemini SDK. LangChain migration, LangGraph, and checkpoint persistence are planned.
+## System flow
 
-Use [the handoff plan](BYTELEARN_V2_HANDOFF_PLAN.md) for learning prompts,
-implementation order, and stage gates. This document describes where that work
-ends: responsibilities, connections, state, lifecycle, and interview explanations.
-Proposed filenames and function signatures are design guidance, not installed API
-documentation. Verify framework APIs against the versions selected at implementation.
-
-## 1. What the final product does
-
-A visitor opens a prepared video and asks a question without signing in. The
-backend retrieves evidence from that video's transcript, streams an answer, and
-returns timestamp citations. Follow-ups can refer to the recent discussion.
-PostgreSQL preserves the conversation's state across backend restarts.
-
-The final release includes a New conversation action and bounded recent history.
-It does not include searchable chat archives, automatic restoration of old message
-bubbles, authenticated conversation ownership, or durable learner preferences.
-
-There are three separate workflows:
-
-| Workflow | Trigger | Output | Runs on every question? |
-| --- | --- | --- | --- |
-| Video preparation | Existing upload/transcription pipeline | Timestamped, embedded transcript chunks | No |
-| Conversational answering | Public answer request | Streamed text, answer, cited sources, updated conversation | Yes |
-| Offline evaluation | Explicit developer evaluation command | Stored benchmark/judge results | No |
-
-The remainder of the application—users, roles, quizzes, playlists, progress,
-bookmarks, comments, likes, subscriptions, recommendations, and dashboards—remains
-alongside these workflows. It is not moved into LangGraph.
-
-## 2. System-level map
+ByteLearn is a public transcript-grounded video tutor with short follow-ups,
+streaming and timestamp citations. The workflow has no autonomous agent/tool loop.
+Existing upload, transcription, quizzes, accounts and dashboards remain separate.
 
 ```mermaid
 flowchart TD
-  Upload[Existing video upload] --> S3[(AWS S3: media and transcript JSON)]
-  Upload --> Transcribe[AWS Transcribe job]
-  Transcribe --> S3
-  Poll[Existing transcription poller] --> S3
-  Poll --> Prepare[Timestamp-aware chunking and Gemini embeddings]
-  Prepare --> Evidence[(PostgreSQL: TranscriptChunk)]
-
-  UI[React video player and chat] -->|POST question, videoId, conversationId| HTTP[Public Express controller]
-  HTTP --> Runtime[Conversation runtime]
-  Runtime --> Graph[Singleton compiled LangGraph]
-  Graph --> Retrieval[Existing hybrid retrieval services]
-  Retrieval --> Evidence
-  Retrieval --> Embed[Gemini question embedding]
-  Graph --> Answer[Grounded answer service]
-  Answer --> Adapter[LangChain answer model adapter]
-  Adapter --> Gemini[Gemini answer model]
-  Graph --> Citations[Deterministic citation filtering]
-  Graph <-->|Workflow snapshots| Saver[Postgres checkpointer]
-  Saver --> Checkpoints[(PostgreSQL: checkpoint tables)]
-  Runtime -->|Selected text and completed result| HTTP
-  HTTP -->|SSE| UI
-
-  HTTP -. Request span .-> Traces[Existing LangSmith integration]
-  Graph -. Selected child spans .-> Traces
-  Eval[Offline retrieval metrics and OpenEvals] -. Evaluates services separately .-> Retrieval
-  Eval -. Separate evaluation execution .-> Answer
-  Eval --> Artifacts[Saved evaluation artifacts]
+  UI[React video player and chat] --> HTTP[Public POST /api/v1/embeddings/answer]
+  HTTP --> Identity[Validate inputs, derive video-scoped thread, admit locally]
+  Identity --> Runtime[Shared conversational runtime]
+  Runtime --> Graph[LangGraph prepare_context and retrieve]
+  Graph --> Dense[Fresh Gemini query embedding and pgvector dense search]
+  Graph --> Lexical[PostgreSQL full-text search]
+  Dense --> RRF[RRF: top 5 current transcript chunks]
+  Lexical --> RRF
+  RRF --> Branch{Any evidence?}
+  Branch -->|Yes| Generate[Grounded service / LangChain ChatGoogle / Gemini]
+  Generate --> Validate[Current-source citation-ID validation]
+  Branch -->|No| Abstain[Canonical abstention]
+  Validate --> Final[finalize_turn]
+  Abstain --> Final
+  Generate -->|Draft tokens via controller SSE| UI
+  Final -->|Successful graph return: controller done SSE| UI
+  Graph <--> Saver[(PostgreSQL checkpoints)]
+  Final <--> Saver
 ```
 
-Transcript tables and checkpoint tables may be in the same PostgreSQL database,
-but they store different things and have different owners. The diagram shows
-logical dependencies; it does not imply all calls run in parallel. The existing
-hybrid service executes dense retrieval and then lexical retrieval.
+The saver checkpoints the whole graph, including intermediate generation/validation
+state, not just the two drawn nodes. Retrieval is dense **then** lexical in code;
+the two paths in the diagram are logical dependencies, not parallel execution.
+Both query product `TranscriptChunk` rows scoped by `videoId`. Checkpoint storage
+is separate from product evidence even when both use the same database.
 
-## 3. Ownership: the boundaries that remain stable
+## Responsibilities and source map
 
-| Component | Owns | Receives / returns | Must not own |
-| --- | --- | --- | --- |
-| React video chat | Visible messages, loading/error state, conversation ID, stream parsing, reset | User input; SSE text and final source metadata | SQL, graph state mutation, model credentials |
-| Video player | Playback and seeking | Timestamp in milliseconds via existing seek callback | Evidence retrieval or answer generation |
-| Express route | Public endpoint registration | HTTP request to controller | Workflow logic or authentication requirement for RAG |
-| Answer controller | Request validation, SSE headers/events, transport cancellation, request trace root | Public request -> runtime call -> HTTP response | SQL, prompt construction, message reducers |
-| Conversation runtime | Shared graph access, thread key derivation, same-thread admission, event selection, invocation lifecycle | Plain request input and request-scoped cancellation -> text/result | Express objects, factual evidence policy, provider prompts |
-| LangGraph definition | State schema, nodes, transitions, turn completion | Current state -> partial state updates | HTTP, SQL implementation, client construction per node |
-| Context helper | Deterministic follow-up resolution | Current question plus recent human context -> retrieval query | Treating history as evidence or making another model call |
-| Hybrid retriever | Existing dense + lexical search and fusion | videoId + retrievalQuery -> up to five evidence matches | Conversation storage, HTTP, answer prose |
-| Grounded answer service | Grounding instructions, source labels, question/evidence messages, text accumulation | Question/subject + matches -> answer text and streamed text | Retrieval, checkpoints, HTTP responses |
-| Answer model adapter | Configured ChatGoogle boundary and text-output normalization | LangChain messages -> response/text chunks | Transcript SQL, citation policy, SSE, learner memory |
-| Citation validator | Valid retrieved-and-cited source metadata | Final answer + current matches -> sources | Claim-level truth judging or rewriting streamed text |
-| History helper | Completed-pair cleanup and recent-four-turn bound | Message state -> supported removal/update operations | Summarization or deleting historical checkpoint rows |
-| Checkpointer module | Singleton saver/pool ownership and cleanup | Framework checkpoint reads/writes | Product chat lists, user profiles, evidence retrieval |
-| LangSmith wrapper | Existing trace hierarchy and selected logging | Explicit safe summaries | Deciding answers or storing conversational truth |
-| Offline evaluators | Retrieval metrics and semantic assessments | Explicit benchmark examples and outputs -> results | Blocking a visitor's live response |
+Paths below are relative to `Backend/` unless prefixed `../Frontend/`.
 
-These are logical responsibilities, not a mandate to create a separate class or
-file for each row. Keep small helpers together until separation aids clarity.
-
-## 4. Proposed final file map
-
-Legend: E = existing and reused; M = existing and modified; N = proposed new file.
-Names for N files are recommended; implementation may consolidate small helpers.
-
-```text
-Frontend/src/components/
-  VideoChatBody.jsx                         M  identity, stream parsing, reset
-  existing player/parent components         E  timestamp seeking
-
-Backend/
-  BYTELEARN_V2_HANDOFF_PLAN.md               E  staged learning/implementation
-  BYTELEARN_V2_ARCHITECTURE_MAP.md           N  this target design
-  package.json / package-lock.json          M  direct runtime dependencies
-  scripts/
-    setup-checkpointer.js                  N  explicit idempotent schema setup
-    rebuild-chunks.js                      E  existing ingestion utility
-  src/
-    index.js                               M  initialize/close runtime resources
-    app.js                                 E  existing API mounts/middleware
-    routes/embedding.routes.js              E  keep answer route public
-    controllers/embedding.controllers.js    M  delegate answer flow, retain SSE
-    graphs/
-      conversationalRagGraph.js             N  schema, nodes, edges, factory
-    runtime/
-      conversationRuntime.js                N  singleton, identity, admission,
-                                              cancellation and event selection
-    persistence/
-      conversationCheckpointer.js           N  saver construction/pool lifecycle
-    models/
-      answerChatModel.js                    N  ChatGoogle model boundary
-    services/
-      ragAnswerService.js                   M  grounded messages and generation;
-                                              reusable citation validator
-      conversationContext.js                N  follow-up and history helpers
-      hybridTranscriptRetriever.js          E  frozen orchestration
-      denseTranscriptRetriever.js           E  frozen cosine SQL + query embedding
-      lexicalTranscriptRetriever.js         E  frozen PostgreSQL FTS
-      reciprocalRankFusion.js               E  frozen rank fusion
-      chunkingService.js                    E  prepare/store transcript evidence
-    db/index.js                            E  existing application DB ownership
-    observability/langsmithTracer.js        E  preserve; fix only proven gaps
-    utils/
-      geminiEmbedding.js                    E  embedding model remains separate
-      chunking.js                           E  timestamps and chunk construction
-      transcribe.utils.js                   E  start transcription jobs
-      transcriptionPolling.js               E  process completed jobs
-      supermemory.js                        E  legacy quiz use; not public RAG
-    test/                                  M  focused tests for each changed layer
-  prisma/schema.prisma                     E  no Conversation/Message models
-  evals/                                   E  frozen evaluation code/artifacts
-```
-
-The answer service can continue exporting validateCitations. The graph's
-validate_citations node calls it once. A separate citation file is optional, not
-an architectural requirement. Existing non-answer exports such as chunkAndEmbed
-remain intact when editing the shared controller.
-
-## 5. Video preparation: where factual evidence comes from
-
-This path exists already and stays outside the conversational graph:
-
-1. The existing upload flow obtains an S3 location and creates video metadata.
-2. Publishing starts an AWS Transcribe job for the stored media.
-3. The poller checks processing jobs, then reads transcript output from S3.
-4. Full transcript content/status are stored through Prisma.
-5. chunkingService loads timestamped AWS items and builds chunks. Current code
-   targets about 500 characters, respecting timestamp-aware units; this is not
-   a 500-token guarantee.
-6. Gemini embeds chunk text; the current pipeline stores 768 dimensions.
-7. It validates prepared chunks, then replaces that video's chunk rows within
-   a database transaction. Only after successful preparation is status READY.
-
-TranscriptChunk contains video scope, text, chunk index, start/end milliseconds,
-and the embedding. A question searches these prepared rows; it does not run
-transcription or regenerate all video embeddings.
-
-There are two distinct Gemini uses: embedding text into vectors and generating
-answer prose. Stage 1 changes the latter interface only.
-
-## 6. Final graph: one turn at a time
-
-```mermaid
-flowchart TD
-  Start([START]) --> Prepare[prepare_context]
-  Prepare --> Retrieve[retrieve]
-  Retrieve --> Evidence{Current matches nonempty?}
-  Evidence -->|No| Abstain[abstain]
-  Evidence -->|Yes| Generate[generate]
-  Generate --> Validate[validate_citations]
-  Validate --> Finalize[finalize_turn]
-  Abstain --> Finalize
-  Finalize --> End([END])
-```
-
-| Node | Reads | Writes / work | External dependency |
-| --- | --- | --- | --- |
-| prepare_context | New question, retained completed human turns, videoId | Clean prior incomplete turn according to policy; append current HumanMessage once; reset turn fields; derive retrievalQuery | None |
-| retrieve | videoId, retrievalQuery | Replace matches with fresh hybrid retrieval results | Gemini embeddings and PostgreSQL |
-| evidence route | Current matches | Choose abstain or generate using matches.length > 0 | None |
-| abstain | No evidence required | Exact canonical answer, sources: []; emit one answer-text event | None |
-| generate | Exact question, resolved subject/query, new matches | Stream text; set answer only when generation completes successfully | Answer service -> adapter -> Gemini |
-| validate_citations | Completed answer, current matches | Replace sources with valid cited metadata | Pure validation, optional tracing |
-| finalize_turn | Successful answer, sources, message state | Append completed AIMessage once; retain last four completed pairs | Checkpointer operated by graph runtime |
-
-Nodes return state updates. They do not call res.write, fetch their own database
-clients, or directly write checkpoint tables. The framework's checkpointer saves
-graph progress; finalization is the application's completed-turn boundary.
-
-For fresh requests after a failed turn, preparation must clear incomplete
-conversation inputs and stale per-turn fields. Resuming an interrupted graph run
-is a different operation from submitting a new question; the runtime must not
-silently mix the two. Failure/retry tests choose and prove the supported behavior.
-
-## 7. State map: what lives where
-
-Conceptual graph state (not a copy-paste framework schema):
-
-```js
-{
-  messages: [],       // human/AI messages with stable IDs and a message reducer
-  videoId: "...",    // fixed video scope of this thread
-  question: "...",   // exact current input after validation/normalization
-  retrievalQuery: "...", // may include prior human subject; not evidence
-  matches: [],        // fresh transcript rows for this turn
-  answer: "",       // completed generated/canonical text
-  sources: []         // validated current-turn citation metadata
-}
-```
-
-| State/data | Owner and lifetime | Survives backend restart? | Factual authority? |
-| --- | --- | --- | --- |
-| Visible message bubbles / pending text | React component memory | Not through reload; unrelated to backend restart if page stays open | No |
-| Per-video conversationId | Browser sessionStorage | Yes while that browser session storage remains | No |
-| Current request ID, cancellation, event sink | Runtime invocation only | No | No |
-| Compiled graph, model client, DB pool, saver | Server process singletons | Recreated on restart | No |
-| Active graph messages | Latest saved checkpoint, max four completed pairs | Yes | Reference-resolution context only |
-| Current question/query/answer/sources/matches | Graph state, reset/replaced per turn | Can be included in checkpoints | Only fresh retrieved matches support the current answer |
-| Historical checkpoints | Checkpointer tables | Yes | Never reused as new factual evidence |
-| Transcript chunks and embeddings | Existing PostgreSQL application tables | Yes | Retrieval selects this turn's factual evidence |
-| Trace records | LangSmith | Independent of backend lifetime | Execution diagnostics, not answer evidence |
-
-Checkpoint persistence can store full graph state, including transcript matches
-and answer text. Avoiding those payloads in LangSmith does not mean they are
-absent from PostgreSQL checkpoints. These are different storage boundaries.
-
-Do not store req, res, callbacks, AbortController objects, model clients, database
-clients, API keys, or trace clients in graph state. Runtime dependencies are
-supplied outside the state using APIs supported by the selected framework version.
-
-Trimming active messages does not delete old checkpoints. A four-turn bound also
-is not a fixed token budget. Separate retention/token policies are deferred.
-
-## 8. Identity, singleton lifetime, and concurrency
-
-Example conceptual identity mapping:
-
-```text
-Browser storage key: bytelearn:conversation:<videoId>
-Browser value:       <random UUID>
-Internal thread_id:  bytelearn:video:<videoId>:conversation:<UUID>
-```
-
-Use validated identifiers and an unambiguous encoding for the internal key.
-The browser sends conversationId, not an arbitrary internal thread_id. The
-backend derives and checks video scope; saved state must not contradict it.
-
-- Same video + same conversationId: continue that conversation.
-- Same video + new conversationId: separate conversation.
-- Different video + same conversationId: separate conversation.
-- New conversation: cancel pending work, create a new ID, clear visible chat.
-  It does not delete the previous thread's database records.
-- Reload: sessionStorage can preserve the ID and the backend can continue the
-  conversation. Old message bubbles are not automatically reconstructed.
-- Backend restart: runtime objects are rebuilt; checkpoints remain in Postgres.
-- End of browser storage session: the UI may lose the resume ID even though
-  checkpoints remain in the database. No archive/listing feature is planned.
-
-A UUID is not authenticated ownership. Someone possessing the video ID and
-conversation ID can attempt continuation. This public design must not be sold
-as account-bound private chat or authenticated user isolation.
-
-One compiled graph serves many threads; it does not hold one shared conversation
-array. One shared runtime does not mean one conversation for all visitors.
-
-Proposed single-instance overlap policy: admit at most one active request per
-thread and reject a second with HTTP 409 before opening its SSE stream. Different
-threads remain independent. Hold admission until the first operation actually
-unwinds, including cancellation, and release it in finally. The chosen policy
-must be tested; it is not implemented today. A process-local guard does not
-coordinate multiple server replicas. Multi-replica writes require a later design.
-
-## 9. End-to-end walkthrough: Q1, Q2, and restart
-
-Use a video whose transcript actually contains the example concept:
-
-1. Browser sends Q1: "What does the change-in-balance function do?", videoId V,
-   and conversationId C.
-2. Controller validates input and opens one request trace. Runtime derives V+C,
-   admits the request, and invokes the graph with that thread's configuration.
-3. The checkpointer supplies existing state, or the graph starts a new thread.
-4. prepare_context records the human question and resets matches/answer/sources.
-5. Retrieval embeds the search text, queries transcript rows for V, performs FTS,
-   and fuses the rankings. Up to five chunks are supplied to generation.
-6. The answer service makes SystemMessage instructions and HumanMessage data.
-   The adapter streams Gemini text; the runtime selects only answer output.
-7. The controller forwards selected text as SSE. React progressively renders it.
-8. Validation maps actual cited source IDs back to retrieved chunk timestamps.
-9. Finalization appends the completed AI message and applies the history policy.
-10. After successful graph completion/persistence, the controller sends done
-    with the final answer and sources, ends HTTP, and releases admission.
-11. Q2 asks "Why is that useful here?" using V+C. Preparation can build a query
-    containing the preceding human subject and Q2. It retrieves evidence again.
-    It does not use Q1's assistant answer as proof.
-12. After backend restart, Q2 can still access Q1's saved human context because
-    the same scoped thread selects the PostgreSQL checkpoint.
-
-The deterministic contextualizer is deliberately limited. Repeated ambiguous
-follow-ups, distant references, and topic changes may need clarification or
-abstention. Do not advertise arbitrary conversational understanding.
-
-## 10. Model adapter and answer service contracts
-
-Illustrative application contracts, not mandated exported names:
-
-```text
-answer service:
-  buildGroundedMessages({ question, resolvedSubject, matches }) -> messages
-  generateGroundedAnswer({ messages, signal, emitText }) -> completed answer
-  validateCitations(answer, matches) -> sources
-
-model adapter:
-  invoke(messages, invocationOptions) -> completed model message
-  streamText(messages, invocationOptions) -> async iterable of text
-
-runtime:
-  runConversation({ videoId, conversationId, question }, requestContext)
-    -> selected text events and a final { answer, sources }
-```
-
-The exact runtime event API is selected during graph integration. The stable
-contract is that text is emitted once, callbacks are invocation-local and outside
-state, errors propagate, and completion follows graph success. Do not forward
-both callback text and framework model events for the same output.
-
-The adapter may internally own an injected model instance; a test can supply a
-fake model. Production constructs the configured instance once. There is no need
-to instantiate ChatGoogle for every token or move retrieval into LangChain.
-
-Preserve gemini-2.5-flash-lite, GEMINI_API_KEY passed explicitly, temperature 0.7,
-topP 0.95, topK 64, maxOutputTokens 8192, and text-output intent. Resolve exact
-constructor options and the @langchain/google Node export against the selected
-package version. Keep the existing embedding integration and frozen evaluator
-integration separate.
-
-SystemMessage contains tutor, evidence, citation, and abstention instructions.
-HumanMessage contains the question/resolved subject and labeled transcript data.
-Do not append prior AI answers as factual context. No personalization memory is
-supplied on this public RAG path.
-
-Normalize text from AIMessageChunk using verified accessors/content handling.
-content may contain structured blocks; never assume every chunk is a string or
-send the entire framework message object to the frontend.
-
-## 11. Streaming contract: model output to UI
-
-```text
-Gemini generation
-  -> LangChain AIMessageChunk
-  -> adapter's normalized text
-  -> answer service / generate node
-  -> request-local selected output from runtime
-  -> controller's SSE frame
-  -> network byte chunks
-  -> browser UTF-8 decoder + persistent frame buffer
-  -> React pending answer
-```
-
-These are not identical units: a model token, a model chunk, an SSE event, and a
-network read can each have different boundaries.
-
-Preserve the public protocol:
-
-```text
-event: start
-data: {"videoId":"V"}
-
-event: token
-data: {"text":"The function "}
-
-event: token
-data: {"text":"... [Source 1]."}
-
-event: done
-data: {"answer":"The function ... [Source 1].","sources":[...]}
-
-```
-
-Only generate/abstain output becomes visible text. Graph state updates, checkpoint
-events, diagnostic spans, and any future hidden model call are not answer tokens.
-
-The UI must keep an incomplete-frame buffer across reads and process only complete
-SSE frames. The current parser splits each decoded read independently and ignores
-partial JSON errors, so Stage 4 must correct that transport gap. Retain a usable
-AbortController for reset/navigation and ensure old streams cannot update a new
-conversation. On done, reconcile the visible answer with the final answer and
-apply the sources array, including an empty array. Never append the full done
-answer after already appending all token events.
-
-Tokens are provisional output. Final citation validation occurs after generation;
-it does not retroactively prove the truth of text already displayed. If execution
-fails, the UI marks the pending answer as failed/incomplete rather than successful.
-
-## 12. Abstention and citations
-
-| Situation | Behavior | Strength of guarantee |
+| Component | Owns | Does not own |
 | --- | --- | --- |
-| Fresh hybrid retrieval is empty | Canonical text, sources: [], no answer-model call; finalize a valid abstention turn | Deterministic branch |
-| Matches exist but are insufficient | Prompt instructs Gemini to return canonical abstention | Model-dependent |
-| Answer equals canonical abstention | Citation validator returns [] | Deterministic |
-| Answer contains [Source N] | Return metadata only if N is among current retrieved sources | Deterministic ID validation |
-| Citation exists but does not support claim | Current validator cannot establish semantic support | Known limitation |
+| React chat: `../Frontend/src/components/VideoChatBody.jsx` | Visible messages, per-video session UUID, fetch/SSE parsing, reset/cancel; timestamp callback to `VideoDetail.jsx` | Checkpoints, SQL, authentication of conversation IDs |
+| Express: `src/controllers/embedding.controllers.js` | Validation, hashed thread derivation, process-local HTTP admission, SSE and transport AbortController | Prompt/retrieval logic, database setup |
+| Runtime: `src/graphs/conversationalRagRuntime.js` | Singleton initialization, injected dependencies, shared graph/resource, operation drain and close | HTTP identity derivation, prompt construction |
+| LangGraph: `src/graphs/conversationalRagGraph.js` | State/reducer, node routing, narrow context, completed-pair policy, graph-level local admission | HTTP objects, SQL implementation, model/pool creation per node |
+| Hybrid retriever: `src/services/hybridTranscriptRetriever.js` and dense/lexical/RRF siblings | Fresh video-scoped evidence ranking | Chat history, generation, durable checkpoints |
+| Answer service/adapter: `src/services/ragAnswerService.js`, `src/models/answerChatModel.js` | Selected prompt inputs, grounded instructions, model config, streamed text and citation filtering | Retrieval, HTTP, learner personalization |
+| Postgres checkpointer: `src/graphs/postgresCheckpointer.js` | Official saver and dedicated pool, readiness read, explicit setup, owned cleanup | Prisma pool, transcript retrieval, product archives, data-retention deletion |
+| LangSmith: `src/observability/langsmithTracer.js` | Optional manual spans with selected inputs/outputs | Answer correctness, factual authority, conversation persistence |
 
-Even empty-result abstention normally follows a Gemini embedding request. It
-saves answer generation, not all model-related calls. The unnecessary baseline
-memory classifier disappears from public RAG in Stage 1.
+Video preparation uses `src/utils/transcriptionPolling.js`, `src/services/chunkingService.js`
+and `src/utils/chunking.js`: AWS transcript JSON becomes timestamp-aware chunks
+(target about 500 characters, not tokens), Gemini embeddings are sliced to 768
+values, validated and written by a transactional replacement of that video's
+chunks. Questions search prepared rows; they do not rerun transcription.
 
-Final source shape is preserved:
+## Identity, frontend and transport
 
-```js
-{
-  sourceId: 1,       // rank-based label within this turn, not a global row ID
-  chunkIndex: 12,
-  startMs: 123000,
-  endMs: 129000,
-  similarity: 0.82  // can be null for lexical-only results
-}
-```
+The mounted answer endpoint is **POST `/api/v1/embeddings/answer`**, from
+`src/app.js` plus `src/routes/embedding.routes.js`. It accepts JSON
+`{ videoId, question, conversationId }` without JWT middleware. See the
+[API contract](API.md#embeddings--ai-qa) for validation/events.
 
-Source 1 in Q2 can refer to a different transcript chunk than Source 1 in Q1.
-The frontend resolves citations within each answer's own sources array and uses
-the existing onSeekToMs callback for playback navigation.
-
-## 13. Persistence and process lifecycle
-
-Deployment/setup path (planned):
-
-1. Install directly declared backend dependencies and configure the database URL.
-2. Run the dedicated checkpointer setup command against the intended development
-   or deployment database with appropriate authority. Verify idempotence and
-   actual Supabase connection/pooler compatibility.
-3. Start the server. Construct the application DB client, model adapter,
-   checkpointer, and compiled graph under clear singleton ownership.
-4. Admit conversation requests only when persistent runtime initialization succeeds.
-5. On shutdown, stop admitting new work, settle/cancel active work appropriately,
-   and close owned resources. Do not close a shared application pool from an
-   individual request or introduce new ingestion infrastructure.
-
-The checkpointer can use LANGGRAPH_DATABASE_URL, falling back to DATABASE_URL only
-when compatible. Reusing the database does not require sharing the same pool;
-keep connection ownership explicit and avoid per-request pool creation.
-
-Framework checkpoint storage owns its own tables and serialization. Prisma
-continues owning existing application models; no Conversation/Message models are
-added. State fields are persisted using the supported message serializer.
-
-After a failure there may be intermediate checkpoints. The important application
-guarantee is that a partial response is not represented as a completed AI turn.
-After a completed checkpoint commit, the connection can still fail before the
-browser receives done. Therefore persistence is not exactly-once delivery, and
-blind retries are not guaranteed to be idempotent.
-
-## 14. Tracing and offline evaluation: supporting paths
-
-LangSmith already exists. Preserve one request root and selected nested spans:
+`VideoChatBody.jsx` obtains a UUID with `crypto.randomUUID()` and stores it under
+`bytelearn:conversation:${videoId}` in `sessionStorage`. The controller derives:
 
 ```text
-ByteLearnAnswerRequest
-  graph execution / node spans (if enabled and safely summarized)
-    prepare_context
-    hybridRetrieval
-      denseRetrieval
-      lexicalRetrieval
-      reciprocalRankFusion
-    groundedGeneration             [only when evidence exists]
-    citationValidation             [only on generation branch]
-    finalize_turn
+thread_id = sha256(JSON.stringify([videoId, conversationId.toLowerCase()]))
 ```
 
-This is a logical target hierarchy, not a promise of exact automatic span names.
-Node/model spans may be nested differently according to framework integration;
-tests must enforce a single root, correct relationships, and payload boundaries.
-The old learnerMemory span is removed from public RAG.
+Same video + ID continues the checkpoint thread; new ID or different video scopes
+a different thread. `videoId` is validated as nonblank but is not normalized by
+the controller. **Public UUIDs are resume identifiers, internal thread IDs are
+checkpoint keys, and neither is user authentication.** Possession of the video
+and conversation identifiers allows an attempt to continue that thread. This is
+not account-bound private chat or authenticated conversation ownership.
 
-Record selected question/identifier fields and operational summaries: counts,
-source IDs, answer length, model configuration, timings and errors as appropriate.
-Existing tracing is not anonymous or timing-only. Do not accidentally record full
-transcripts, complete prompts/answers, credentials, or HTTP objects when enabling
-LangChain/LangGraph instrumentation. Automatic tracing requires deliberate control
-and tests; manual filtering does not automatically sanitize other library spans.
+The HTTP controller and graph each have an in-process same-thread guard; HTTP
+overlap returns 409 before SSE. Different threads can run concurrently. Admission
+is held through local service unwind, including cancellation. These sets provide
+**no distributed writer coordination** between backend processes.
 
-Optional telemetry should fail open. Existing tracing-disabled tests are useful
-but do not establish that every client/network failure is already handled.
+The frontend uses `fetch` with the Axios-configured base URL, a POST JSON body and
+an AbortSignal. Buffered `TextDecoder` parsing handles split UTF-8/SSE frames.
+Tokens update a draft; `done` replaces it with final text and sources. Error or
+premature EOF removes the draft and displays an error. Citation chips use source
+`startMs`; `VideoDetail.jsx` converts milliseconds to media seconds.
 
-Offline evaluation remains separate from user requests:
+Reset broadcasts abort to both mounted chat surfaces before replacing their
+shared per-video ID and clearing messages. Failed storage access disables sending.
+Unmount/video change cancels pending work; stale responses cannot update new chat.
+Returning to a video can reuse its ID without restoring old message bubbles.
+The old in-memory-lifetime comment in `VideoChatBody.jsx` is historical; production
+persistence is determined by the injected Postgres saver described here.
 
-- Retrieval metrics evaluate ranking against the frozen timestamp evidence.
-- OpenEvals code evaluates properties such as correctness and groundedness.
-- No online LLM judge is inserted after each user answer.
-- Saved hybrid results cover 53 answerable questions of a 61-example dataset:
-  Recall@5 91.2%, MRR@5 76.3%. The dense artifacts report 88.1% and 68.9%.
-- The semantic artifact is incomplete at 6/61. Do not claim completed semantic
-  quality measurements or rerun experiments as part of this roadmap.
+Success is `start → token* → done`. Failure after opening emits `error` if writable,
+never a later `done`; disconnect may prevent any terminal event. Tokens are visible
+drafts, not proof of successful finalization. A committed turn may outlive failed
+`done` delivery. There is no request idempotency key or exactly-once delivery.
 
-## 15. Failure and completion map
+## Graph, active history and factual boundary
 
-| Failure/event | Visible behavior | State/runtime behavior |
-| --- | --- | --- |
-| Invalid input/UUID | HTTP validation error before SSE | No graph invocation |
-| Same thread already active | Proposed HTTP 409 before SSE | Existing run continues; second run not started |
-| Core retrieval/embedding failure | HTTP error if unopened, otherwise one SSE error when writable | No completed AI answer |
-| Lexical-only retrieval failure | Existing dense-only fallback | Preserve frozen lexical behavior |
-| Gemini answer failure | Error, no done; partial UI text is incomplete | Do not finalize partial answer |
-| Checkpointer failure | Explicit conversation service error | No silent MemorySaver fallback |
-| LangSmith failure | Normal grounded answering where optional telemetry can be bypassed | Do not make telemetry a critical dependency |
-| Missing Supermemory key/service | Public RAG remains independent | Guard unrelated import-time initialization if needed |
-| Client disconnect/reset | Stop sending; cancel work as supported | No finalization from known-incomplete generation; release guard after unwind |
-| Disconnect after completed commit | Browser may miss completion | A completed checkpoint may already exist; not exactly-once delivery |
+Actual flow:
 
-The controller sends error only while writable, terminates once, and never sends
-done after failure. It does not fabricate canonical abstention to disguise an
-infrastructure failure. Unsupported evidence and unavailable infrastructure are
-different outcomes.
+```text
+START → prepare_context → retrieve
+                            ├─ matches present → generate → validate_citations ─┐
+                            └─ zero matches → abstain ─────────────────────────┤
+                                                               finalize_turn → END
+```
 
-## 16. Verification ownership
+State fields are `messages`, `videoId`, `question`, `retrievalQuery`, `matches`,
+`answer`, `sources`, `status`. Messages use `messagesStateReducer`; the remaining
+fields hold their latest updates. Data projections limit matches/sources to
+transcript/citation fields. Status progresses through pending, draft (generation),
+validated and complete. Intermediate answers can be checkpointed drafts.
+Callbacks, signals, HTTP objects, clients, pools and tracked promises stay outside
+state in closures/invocation-local storage.
 
-| Layer | Focused proof |
+`prepare_context` removes unmatched failed inputs, appends the current human and
+clears stale per-turn fields. `retrieve` always obtains fresh evidence. Valid zero
+matches bypass generation and citation validation and set exactly:
+
+```json
+{"answer":"I couldn't find enough information in this video to answer that.","sources":[]}
+```
+
+Exceptions are failures, not evidence absence. With matches, generation receives
+only the current question, fresh ranked transcript evidence, optional preceding
+human question and grounding/citation instructions. **Previous AI answers never
+serve as factual evidence; the whole checkpoint history is not a model prompt.**
+For nonempty evidence, model instructions also require canonical abstention when
+support is insufficient; this is not a deterministic semantic-support detector.
+
+`validate_citations` filters metadata to source numbers both cited and present in
+current retrieval. Rank-based IDs can refer to different chunks on different turns.
+It does not establish semantic support or remove every invalid marker from answer
+text. `finalize_turn` alone appends a completed AI message, checks the current human
+and validated status, and retains the **newest four completed human/AI pairs**.
+Canonical abstentions are completed pairs too.
+
+Completed pairs must be adjacent human/AI messages. Failed/cancelled inputs do not
+count; a failed turn can leave an unmatched human and intermediate drafts. Next
+preparation removes abandoned inputs before contextualizing. Finalization uses
+ID-based `RemoveMessage` updates because a shorter array would merge under the
+reducer. Expired completed pairs are removed only at successful finalization.
+During a pending turn, four prior pairs plus the current human may be present.
+**Four pairs are not a token bound. Active trimming is not data erasure:** older
+checkpoint snapshots can retain expired messages, evidence and drafts.
+
+## Follow-up policy
+
+`contextualRetrievalQuery` is a deterministic narrow English heuristic, not LLM
+query rewriting. A question of at most 16 whitespace-separated words can inherit
+only the immediately preceding completed human question when it is a recognized
+continuation (for example “Why?”) or contains a backward-reference pronoun.
+Recognized topic-change prefixes take precedence. The resulting retrieval query
+concatenates that previous question, a newline and the current question.
+
+Longer/standalone questions use themselves. Implicit/non-English references,
+ambiguous pronouns, chains of vague follow-ups, topic changes and expired/distant
+context can fail to resolve. Retaining four pairs does not mean the contextualizer
+searches all four. Fresh transcript retrieval remains mandatory every turn.
+
+## Frozen retrieval and generation configuration
+
+| Setting | Production value / source |
 | --- | --- |
-| Model adapter | invoke result, multi-chunk text order, empty/structured content handling, fake-model injection |
-| Answer service | Grounded message composition, no old AI evidence, accumulation, canonical abstention and citations |
-| Graph | Q1/Q2 context, fresh retrieval, stale-field reset, conditional branches, one completed AI turn |
-| Runtime | Thread/video scope, singleton use, same-thread conflict, cancellation, event selection |
-| HTTP/SSE | Validation, public access, event order, one done/error, no duplication |
-| Browser | Frames split across reads, multiple frames/read, final reconciliation, reset/navigation isolation, timestamp seeking |
-| Persistence | Real restart continuity, separate-thread state, idempotent setup, pool cleanup and failure behavior |
-| History | Ten-turn run, four completed pairs, IDs/removals, failure then success, expired references |
-| Observability | Existing hierarchy preserved, no duplicate root, no automatic raw payload capture, failure cases |
-| Final demo | Supported Q1/Q2, restart, reset, abstention, citations, failure display |
+| Embedding path | `src/utils/geminiEmbedding.js`, raw `@google/generative-ai` `embedContent` |
+| Embedding model | `GEMINI_EMBEDDING_MODEL` or `gemini-embedding-001`; legacy `text-embedding-004` alias maps to that default |
+| Embedding endpoint | `GEMINI_API_VERSION` default `v1beta`; `GEMINI_API_BASE_URL` default `https://generativelanguage.googleapis.com` |
+| Vector representation | First 768 returned values for chunks/query; chunk writes validate length 768 |
+| Dense | pgvector cosine similarity `1 - (embedding <=> queryVector)`, strictly `> 0.3`, top 10 |
+| Lexical | PostgreSQL English FTS, `websearch_to_tsquery` with AND replaced by OR, `ts_rank_cd`, top 10; not BM25 |
+| Scope | Both SQL paths constrain the same `videoId` |
+| Fusion | RRF `k=60`, deduplicate database chunk IDs, descending fused rank; chunkIndex tie-break |
+| Final evidence | Top 5; lexical failure returns an empty list and preserves dense-only ranking |
+| Answer model | `ChatGoogle` from `@langchain/google/node`, `gemini-2.5-flash-lite`, explicit `GEMINI_API_KEY` |
+| Answer settings | temperature 0.7, topP 0.95, topK 64, maxOutputTokens 8192 |
 
-Keep the existing full backend suite green and add focused coverage where it is
-missing. Unit tests of metric functions are not benchmark reruns. Tests with fake
-Gemini/Postgres cannot replace the live restart and browser acceptance checks.
+The embedding overrides do not change the fixed answer-model configuration.
+LangChain is used at the answer-model/message boundary; custom retrieval, SSE and
+citation logic remain application code. LangGraph owns workflow orchestration.
+No retrieval settings were retuned in Stage 10.
 
-## 17. How Stage 1 grows into this design
+## Persistence, lifecycle and failure
 
-| Stage | Introduces/changes | Boundary kept |
-| --- | --- | --- |
-| 0 | Records actual behavior and coverage | No source edits |
-| 1 | ChatGoogle adapter, role-separated grounded messages, removal of public memory calls | Controller still owns HTTP; retriever stays custom |
-| 2 | Test-only graph exercise | Production path unchanged |
-| 3 | Graph definition, context/history helpers, in-memory runtime | Services remain reusable; HTTP not connected yet |
-| 4 | Runtime/controller/UI connection, identity and robust SSE handling | Source payload and public access preserved |
-| 5 | Postgres checkpointer and lifecycle | Graph's business flow stays the same |
-| 6 | Completed-pair trimming | No summarization or new evidence source |
-| 7 | Deferred | No long-term learner-memory project |
-| 8 | Necessary failure fixes/tests | Existing optional tracing preserved |
-| 9 | Complete-journey proof | No new evaluation framework |
-| 10 | Accurate setup, architecture and resume docs | No behavior changes |
+Production always injects `PostgresSaver` from
+`@langchain/langgraph-checkpoint-postgres` **1.0.5**. Direct isolated graph
+construction can default to `MemorySaver` for tests; there is **no production
+MemorySaver fallback**. `LANGGRAPH_DATABASE_URL` is required independently of
+`DATABASE_URL`; fixed schema `bytelearn_langgraph` is set up by
+`npm run langgraph:setup` from `Backend/`. See [setup](README.md) for prerequisites.
 
-Stage 1 is not throwaway work. The model adapter still talks to Gemini in the
-final system. Later the graph takes over coordination from the controller, and
-generation/citation validation become separately callable responsibilities.
-Extract functions only when needed; do not build every future module in Stage 1.
+One runtime owns one compiled graph and a dedicated checkpoint `pg.Pool`; Prisma
+owns a separate product pool. Initialization shares one promise and verifies the
+saver with a read before HTTP listening/polling. Startup never migrates, and a
+readiness read does not prove all future write permissions/availability. Initialization
+failure is terminal for that runtime. Graph execution uses synchronous durability.
 
-## 18. Interview responsibility map
+SIGINT/SIGTERM stop accepting HTTP, drain requests/runtime work, then close the
+checkpoint pool once. New runtime operations are rejected after closing begins.
+The entrypoint forces a nonzero exit after 15 seconds if shutdown stalls; crashes,
+SIGKILL or non-cooperative services cannot guarantee graceful cleanup. Prisma and
+polling resource ownership remains separate.
 
-| Technology/component | One precise explanation |
+| Dependency/event | Policy |
 | --- | --- |
-| AWS Transcribe | Converts video audio into transcript text with timing information. |
-| Gemini embeddings + pgvector | Represent questions/chunks as vectors and retrieve similar transcript passages. |
-| PostgreSQL FTS + RRF | Add lexical matches and fuse rank positions from both retrieval methods. |
-| LangChain | Supplies the answer-model/message interface and streamed model chunks. |
-| LangGraph | Coordinates state updates and evidence-based routing for a conversation turn. |
-| PostgreSQL checkpointer | Stores graph snapshots so the same thread can continue after restart. |
-| Express SSE | Delivers selected answer text progressively over the HTTP response. |
-| Citation validator | Maps valid current-turn references to timestamp metadata; not a truth judge. |
-| LangSmith | Observes request execution through selected spans and summaries. |
-| OpenEvals | Supports offline answer-quality assessment, separate from live serving. |
+| Valid zero evidence | Exact canonical abstention, empty sources, no model call |
+| Critical dense/embed/product database failure | Explicit failure; never converted to abstention |
+| Lexical-only failure | Existing dense-only fallback |
+| Model failure | Error; no completed partial AI from incomplete generation |
+| PostgreSQL checkpoint failure | Explicit failure; no memory fallback; final commit acknowledgement can be ambiguous |
+| LangSmith failure | Fail open where optional; preserve original work/result once; not a universal SDK/network guarantee |
+| Supermemory unavailable | Public RAG unaffected; legacy quiz subsystem is separate |
+| Client disconnect | Cancel/unwind; no known-incomplete finalization; an already committed turn remains committed |
 
-Suggested explanation after implementation and verification:
+Abort propagates to generation and is checked around retrieval, validation and
+finalization. Dense embedding/SQL operations have no new remote cancellation API:
+the graph waits for local unwind and discards cancelled results. Provider abort
+does not prove immediate remote compute termination or cost cessation.
 
-> A public question enters Express with a video and conversation ID. The server
-> selects a persistent graph thread, uses recent human context to clarify a
-> follow-up, and retrieves fresh transcript evidence through hybrid PostgreSQL
-> search. With no evidence it returns a fixed abstention. Otherwise Gemini streams
-> an answer through a small LangChain adapter, and we validate cited source IDs
-> into video timestamps. Express delivers the text through SSE. PostgreSQL stores
-> graph state, while LangSmith records selected execution metadata. History helps
-> interpret questions but never replaces transcript evidence.
+With the same identifiers and available prepared checkpoint database, a new runtime
+can continue saved context with a new turn. Fresh input does not resume an interrupted
+graph execution. **Conversation state continuity ≠ old HTTP stream resumption ≠
+frontend historical message restoration.** A browser can miss `done` after durable
+completion; retry can add another turn. Final-checkpoint acknowledgement failure
+cannot prove whether the database committed; no rollback guarantee is claimed.
 
-Do not claim the target as implemented until the corresponding stage checks pass.
+## Observability, evidence and limitations
+
+Optional manual LangSmith spans wrap request, retrieval, generation and citation
+validation. Automatic graph/model payload tracing is suppressed at iterator
+boundaries; generation/citation spans use selected summaries. Hybrid retrieval's
+manual span includes the retrieval query (possibly a prior human question). This
+is not universal PII redaction. Checkpoints separately store questions, message
+history, evidence content, drafts, sources and framework metadata/pending writes;
+task error text can persist. Restrict schema/backups access; serialization is not
+encryption, retention or erasure.
+
+The [root evidence summary](../README.md#evidence-boundary) separates accepted
+Stage 9 repository/integration PASS from **full live acceptance NOT RUN**.
+After Stage 9, inspection found one missing `PRIVATE_MEDIA_TYPES` import in the
+unrelated S3 upload controller. The canonical import was restored and covered by
+`src/test/awsS3Controller.test.js`; the subsequent backend regression passed 271
+tests with one gated PostgreSQL skip. No RAG behavior changed.
+Earlier disposable PostgreSQL evidence in Stages 5/6 is historical and does not
+establish Stage 9 full-process/browser/provider acceptance. Retrieval artifacts
+cover 53 answerable questions out of 61. OpenEvals machinery exists, but the saved
+semantic run completed only 6/61; no overall semantic quality is established.
+
+Deferred: Stage 7 learner personalization, autonomous agents/tools, summarization,
+LLM query rewriting, custom conversation archives, authenticated conversation
+ownership, distributed concurrency, token budgets and checkpoint retention deletion.
+Legacy quiz Supermemory calls do not implement public-RAG personalization.
+
+## Decisions and tradeoffs
+
+| Decision | Why | Main tradeoff |
+| --- | --- | --- |
+| Hybrid dense + lexical retrieval | Combine semantic and exact-term matches; historical benchmark improvement | Two search paths and rank fusion; results still require semantic scrutiny |
+| LangChain at answer-model boundary | Standard message/model interface without replacing working retrieval/SSE | Version-sensitive adapter and tracing/cancellation boundaries |
+| Small LangGraph workflow | Explicit evidence branch and completed-turn boundary | Checkpoint/runtime lifecycle complexity; no autonomous planning |
+| Deterministic contextualization | No extra model call; inspectable narrow policy | Limited reference resolution and topic handling |
+| PostgreSQL checkpoints | Durable framework state using existing database technology | Required setup/availability; sensitive historical snapshots |
+| Four-pair recent history | Bound active message count and retain short context | No token bound, summarization or storage-retention limit |
+| SSE over POST fetch | Incremental answer display with final citation payload | Drafts can fail; no stream replay or exactly-once receipt |
+| Explicit failure boundaries | Distinguish missing evidence from dependency failure | User-visible errors for critical outages |
+| Defer long-term personalization | Keep factual authority in current transcript evidence | No durable learner preferences in public RAG |

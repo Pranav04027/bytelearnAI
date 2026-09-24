@@ -1,101 +1,57 @@
-# ByteLearn Frontend
+# ByteLearn frontend
 
-**ByteLearn** is a modern, high-performance video-based learning platform built with React 19 and Vite. It provides a seamless experience for learners to watch educational content, track progress, participate in quizzes, and interact with creators through posts and comments.
+React 19 + Vite application for video discovery/playback, transcript chat, quizzes,
+accounts and learning workflows. The backend is the sibling [Backend](../Backend)
+directory in this repository.
 
-## 🚀 Features
+## Local setup
 
-### 📺 Video & Learning
+Use a Node version satisfying the checked-in Vite/Prisma engine ranges; the
+[backend dependency table](../Backend/README.md#dependencies-and-versions) records
+Node 20.20.2 / npm 10.8.2 at the reconciliation snapshot.
 
-* **Video Discovery:** Browse and search through a vast library of educational content.
-* **Smart Playback:** Track your "Continue Watching" progress and view your watch history.
-* **Interactive Quizzes:** Test your knowledge with video-specific quizzes.
-* **Bookmarks:** Save videos for later reference in a dedicated bookmark section.
+From `Frontend/`:
 
-### 👤 User Experience
-
-* **Personalized Dashboard:** View stats, enrolled courses, and activity.
-* **Custom Profiles:** Manage your channel, update avatars, and customize cover images.
-* **Subscriptions:** Follow your favorite instructors to stay updated.
-
-### 💬 Engagement
-
-* **Community Posts:** Stay updated with "tweets" (short posts) from creators.
-* **Comments & Likes:** Engage with content through nested comments and reactions.
-* **Playlists:** Create and manage curated lists of videos.
-
----
-
-## 🛠️ Tech Stack
-
-* **Core:** React 19 (Functional Components & Hooks)
-* **Routing:** React Router DOM v7
-* **Styling:** Tailwind CSS with PostCSS
-* **State & Logic:** Context API (Auth) and Custom Hooks (`useAuth`, etc.)
-* **API Client:** Axios for robust HTTP requests
-* **Build Tool:** Vite
-
----
-
-## 📂 Project Structure
-
-The project follows a modular, feature-based directory structure for high maintainability:
-
-```text
-src/
-├── api/          # Axios instances and API service modules (with interceptors)
-├── components/   # Reusable UI components (Layouts, Navbars, etc.)
-├── contexts/     # Global state management (AuthContext)
-├── hooks/        # Custom React hooks
-├── pages/        # Feature-specific page components (Auth, Dashboard, Videos, etc.)
-└── routes/       # Centralized route definitions
-```
-
----
-
-## 🚦 Getting Started
-
-### Prerequisites
-
-* Node.js (v18 or higher recommended)
-* npm or yarn
-
-### Installation
-
-1. **Clone the repository**
 ```bash
-git clone https://github.com/your-username/bytelearn-frontend.git
-cd bytelearn-frontend
+npm ci
+npm run dev
 ```
 
-2. **Install dependencies**
-```bash
-npm install
-```
+Complete [backend setup](../Backend/README.md#development-setup) in a separate
+terminal first. In development, leaving `VITE_API_BASE_URL` unset uses `/api/v1`
+and the Vite proxy to `http://localhost:8000`. If `.env` already sets it, that value
+overrides the proxy path. For a direct backend origin, set:
 
-3. **Configure Environment**
-Create a `.env` file in the root directory and add your backend API URL:
 ```env
 VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
-4. **Run in development mode**
-```bash
-npm run dev
-```
+The base must include `/api/v1`. For a production build configure the real API
+base explicitly: the current unset production fallback is
+`http://localhost:3000/api/v1`, not the default backend port. Match backend CORS to
+the frontend origin. `VITE_QUIZ_ATTEMPT_LIMIT` is an optional separate quiz setting
+(template value 2); `VITE_APP_NAME` is a template placeholder, not chat configuration.
+Never put Gemini/database/API secrets in browser environment variables.
 
-5. **Build for production**
-```bash
-npm run build
-```
+Scripts: `npm run build` creates the Vite bundle; `npm run preview` serves a built
+bundle locally; `npm run lint` runs ESLint; `npm test` runs Vitest.
 
----
+## Public video chat
 
-## 🔗 Related Project
+`src/pages/Videos/VideoDetail.jsx` hosts the player and desktop panel/mobile drawer.
+`src/components/VideoChatBody.jsx` handles anonymous POST/SSE chat, progressive text,
+final timestamp chips, errors and **New conversation**. The request includes
+`videoId`, trimmed `question` and a per-video UUID saved in `sessionStorage`.
 
-This is the frontend repository for ByteLearn. The backend API source code can be found at: https://github.com/Pranav04027/byteLearn-backend
+The UUID resumes backend state; it is not login or authenticated ownership. Reset
+aborts pending requests before replacing the ID and clearing visible messages.
+Returning to a video can reuse its stored ID. Reload/unmount does not restore old
+message bubbles from PostgreSQL. Backend continuity, frontend visible history and
+old stream resumption are separate concepts.
 
----
-
-## 📄 License
-
-This project is licensed under the MIT License.
+See [frontend architecture](docs/architecture.md), the
+[public API](../Backend/API.md#embeddings--ai-qa), and the
+[demo procedure](../README.md#demo-instructions-not-acceptance-evidence).
+Stage 9's **17 passing chat tests** use jsdom/fake fetch; real browser, media seek
+and actual-video/Gemini acceptance were **NOT RUN**. Stage 10 did not rerun tests
+or change frontend behavior.

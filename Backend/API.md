@@ -427,8 +427,13 @@ Auth requirements: `avatar` and `coverimage` are allowed anonymously; `thumbnail
 }
 ```
 
-- `visibility`: `public` for avatar/coverimage/thumbnail, `private` for video.
-- `shouldPersist`: `publicUrl` for public media, `key` for private media (videos).
+- `visibility` and `isPrivate` come from the canonical media sets in
+  `src/utils/aws-s3.js`. In the current repository all four allowed media types,
+  including `video`, are classified as `public` (`PRIVATE_MEDIA_TYPES` is empty).
+- `shouldPersist` is `publicUrl` for the current public classification. Video
+  creation and playback endpoints still accept/return their existing video key and
+  playback URL fields; this documentation reflects the current helper behavior and
+  does not change it.
 - For videos, the generated key includes the user id, e.g. `videos/<userId>/...` — required later by `POST /videos/uploadvideo`.
 
 #### `GET /awsS3/videos/:videoId/playback-url`
@@ -444,8 +449,7 @@ Auth: optional (`verifyJWTOptional`). Returns a fresh presigned playback URL for
   "data": {
     "videoId": "...",
     "key": "videos/...",
-    "playbackUrl": "https://...",
-    "expiresIn": 3600
+    "playbackUrl": "https://..."
   },
   "message": "Playback URL generated"
 }
@@ -661,18 +665,20 @@ Auth: `verifyJWT`. Same shape as `GET /users/dashboard`. `data`:
 
 ### Embeddings & AI Q&A
 
-Prefix: `/embeddings`
+Mounted prefix: `/api/v1/embeddings` (`src/app.js` plus
+`src/routes/embedding.routes.js`). Both routes below have no JWT middleware.
+Public access does not bypass the application body limits, sanitization, CORS or
+rate limiting. The streaming answer is an exception to the common JSON success
+envelope documented above.
 
 #### `POST /embeddings/chunk-and-embed`
 
-No auth. Splits a video transcript into chunks (500 chars, 50 overlap), generates Gemini embeddings, and stores them as `TranscriptChunk` rows with pgvector.
-
-**Request body (JSON)**
-
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `videoId` | string | yes | Must have a transcription record |
-| `transcript` | string | no | Overrides stored transcript if provided |
+Public preparation route; not called for every question. Accepts `{ "videoId": "..." }`.
+It loads AWS transcript JSON from S3 `transcripts/<videoId>.json`, builds timestamp-aware
+chunks targeting about 500 characters, embeds them, validates and transactionally
+replaces that video's `TranscriptChunk` rows. A request `transcript` field is not
+an override. This operation writes data and uses providers; it is not a setup probe.
+A transcription record is needed for the final status update to `READY`.
 
 **200 response**
 
@@ -685,43 +691,100 @@ No auth. Splits a video transcript into chunks (500 chars, 50 overlap), generate
 }
 ```
 
-Transcription status is set to `READY`. Existing chunks for the video are replaced.
-
 #### `POST /embeddings/answer`
 
-Auth: `verifyJWT`. **Streaming** endpoint. Answers a natural-language question using semantic retrieval over the video's transcript chunks. Responds with **Server-Sent Events (SSE)**.
+Exact full endpoint: **POST `/api/v1/embeddings/answer`**. Anonymous/public;
+no Authorization header, account or cookie is required. The frontend may include
+cookies for its shared application origin, but RAG does not use them for ownership.
 
-**Request body (JSON)**
+**Request body (`Content-Type: application/json`)**
 
-| Field | Type | Required |
+```json
+{
+  "videoId": "existing-video-id",
+  "question": "Explain the concept introduced in this video.",
+  "conversationId": "c2546993-222c-4615-9729-e3dafbdc87f1"
+}
+```
+
+| Field | Required validation / meaning |
+| --- | --- |
+| `videoId` | Nonblank string; exact product video scope for retrieval and conversation. Controller does not trim the value or validate video existence/publication here. |
+| `question` | String, trimmed and nonempty; current turn input. No separate question-length validator beyond the application's body limit (16kb JSON for this route). |
+| `conversationId` | UUID string matching version nibble 1–8 and RFC variant 8/9/a/b (case-insensitive); frontend generates UUID v4. Required resume identifier, not authentication. |
+
+The controller derives internal `thread_id` as SHA-256 of
+`JSON.stringify([videoId, conversationId.toLowerCase()])`. Clients send the public
+ID, not internal checkpoint keys. Same video/ID continues state; a new ID or other
+video isolates a thread. Neither public nor internal ID authenticates a user.
+Anyone with both public identifiers can attempt continuation. Same-thread overlap
+returns HTTP 409 using a **process-local** guard; no distributed lock is claimed.
+
+**Before SSE**
+
+- HTTP 400 JSON `{ success: false, message }` for missing/blank video or question,
+  or invalid conversation UUID.
+- HTTP 409 JSON `{ success: false, message }` for an already running conversation.
+- Other pre-stream failures use the global JSON error handler; missing embedding
+  API configuration is a 500. Middleware may reject malformed/oversized/rate-limited
+  requests before controller validation.
+
+**SSE** (`Content-Type: text/event-stream`)
+
+Frames contain `event: <name>` and a JSON `data:` payload, followed by a blank line.
+Network chunks are not frame or UTF-8 character boundaries.
+
+| Event | Payload | Meaning |
 | --- | --- | --- |
-| `videoId` | string | yes |
-| `question` | string | yes |
+| `start` | `{ "videoId": "..." }` | Stream opened |
+| `token` | `{ "text": "..." }` | Nonempty answer fragment; may contain more than one model token |
+| `done` | `{ "answer": "...", "sources": [] }` | Final answer and cited current-source metadata after successful graph completion; stream ends |
+| `error` | `{ "message": "Failed to stream answer" }` | Failure after stream opened, if transport remains writable; stream ends |
 
-**SSE event stream**
+Each source contains `sourceId`, `chunkIndex`, `startMs`, `endMs`, `similarity`
+(numbers or null where unavailable). `sourceId` is 1-based current retrieval rank;
+timestamps are milliseconds. A lexical-only source can have null similarity.
+Only cited valid current ranks receive metadata. Citation-ID filtering does not
+prove semantic support and does not guarantee all invalid marker text is removed.
 
-| Event | Payload | Notes |
-| --- | --- | --- |
-| `start` | `{ videoId }` | Stream opened |
-| `token` | `{ text }` | Streaming answer fragments |
-| `done` | `{ answer }` | Final full answer; stream ends |
-| `error` | `{ message }` | Failure after stream started |
+Successful ordering is **`start → token* → done`**. Partial output can appear before
+an error, but failure never produces a later `done`. Unexpected EOF without `done`
+is not successful completion. Client disconnect/socket failure aborts local work
+and suppresses further writes; no terminal event is guaranteed on a broken socket.
 
-If no relevant chunks are found (similarity ≤ 0.3), a `token` + `done` event is emitted with a "couldn't find a relevant answer" message.
+Valid zero fresh retrieval matches skip the model and produce a token containing
+exactly `I couldn't find enough information in this video to answer that.` followed
+by `done` with that answer and `sources: []`. Critical retrieval failures produce
+errors, not abstention. Lexical failure alone falls back to dense retrieval.
+Nonempty evidence is subject to grounding/abstention instructions and citation-ID
+validation, not a semantic correctness guarantee.
 
-Learner memory is consulted (and important questions are saved to memory) to personalize the answer.
+Tokens are drafts. Completed history is recorded only through successful graph
+finalization. A durable completion can precede a lost `done`; retrying the same
+question can create another turn. There is no exactly-once delivery or stream
+resumption. A checkpoint write acknowledgement failure can leave commit status
+ambiguous. Provider cancellation does not prove immediate remote cost termination.
+
+Fresh retrieval runs every turn. Narrow follow-ups can use one preceding human
+question for interpretation; prior AI answers are never factual evidence.
+Public RAG does not consult or save Supermemory learner profiles. See the
+[architecture](BYTELEARN_V2_ARCHITECTURE_MAP.md) for active four-pair history,
+persistence, model inputs and other limitations.
 
 ---
 
 ## Media Upload Flow
 
-The platform stores media in S3. Public media (avatar, coverimage, thumbnail) is served via public URLs; videos are private and streamed via presigned URLs.
+The platform stores media in S3. The current `aws-s3.js` media sets classify
+avatar, coverimage, thumbnail and video as public; video endpoints still expose
+the existing playback URL fields and the upload route returns a presigned PUT
+URL for the upload operation.
 
-1. **Request an upload URL** — `POST /awsS3/upload-url` with `mediaType`, `fileName`, `contentType`, `fileSize`. Returns a presigned `PUT` URL, the resulting `key`, and for public media the `publicUrl`.
+1. **Request an upload URL** — `POST /awsS3/upload-url` with `mediaType`, `fileName`, `contentType`, `fileSize`. Returns a presigned `PUT` URL, the resulting `key`, and a `publicUrl` for the current public classification.
 2. **Upload** — perform a `PUT` to the returned `uploadUrl` with the `Content-Type` header and the raw bytes.
-3. **Persist** — send the `publicUrl` (for public media) or `key` (for videos) to the relevant endpoint:
+3. **Persist** — send the field expected by the relevant endpoint. Account/avatar endpoints use the public URL; video creation accepts its existing `videoKey`/`videos3Key` and `thumbnailUrl` fields:
    - `POST /users/register`, `PATCH /users/update-avatar`, `PATCH /users/update-coverimage`
    - `POST /videos/uploadvideo` (requires both `videoKey` and `thumbnailUrl`)
-4. **Playback** — for private videos, request `GET /awsS3/videos/:videoId/playback-url` (or use the `videofile`/`videoPlaybackUrl` returned by video endpoints) to get a presigned GET URL valid for 1 hour.
+4. **Playback** — request `GET /awsS3/videos/:videoId/playback-url` (or use the `videofile`/`videoPlaybackUrl` returned by video endpoints) to obtain the current playback URL behavior.
 
 > The backend validates that submitted URLs point at this S3 bucket with the expected prefix and that the object exists before persisting.
