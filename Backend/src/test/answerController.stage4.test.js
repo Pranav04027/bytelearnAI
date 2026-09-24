@@ -157,6 +157,12 @@ describe("public conversational answer", () => {
     if (ending === "request-abort") first.req.emit("aborted");
     const writesAtAbort = first.res.write.mock.calls.length;
     if (ending.includes("abort") || ending === "disconnect") expect(receivedSignal.aborted).toBe(true);
+    if (["disconnect", "request-abort"].includes(ending)) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      const stillActive = request(input);
+      await stillActive.run();
+      expect(stillActive.res.statusCode).toBe(409);
+    }
     finish();
     await running;
     const terminal = first.events().filter((e) => ["done", "error"].includes(e.event));

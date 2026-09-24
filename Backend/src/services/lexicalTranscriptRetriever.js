@@ -56,11 +56,10 @@ export async function retrieveTranscriptChunksLexical(videoId, question, limit =
       LIMIT ${limit};
     `;
     return matches;
-  } catch (err) {
+  } catch {
     // FTS unavailable / malformed query → degrade to no lexical hits.
-    console.warn(
-      `[lexical:skip] videoId=${videoId} reason=${err?.message || err}`
-    );
+    // Driver errors may contain SQL, transcript/query text or credentials.
+    console.warn("[lexical:skip] Lexical retrieval unavailable; using dense results");
     return [];
   }
 }

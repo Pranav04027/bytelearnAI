@@ -140,3 +140,52 @@ it("constructs one owned pool across requests using the real persistence resourc
   expect(createPool).toHaveBeenCalledTimes(1);
   expect(f._pool.end).toHaveBeenCalledTimes(1);
 });
+
+
+it.each(["getTuple", "put", "putWrites"])("recovers on the same thread after %s fails without recreating persistence", async method => {
+  const f = fixture();
+  await f.runtime.invoke(input, config());
+  const previous = (await f.runtime.getState(config())).values.messages.map(m => m.id);
+  const failed = vi.spyOn(f.persistence._saver, method).mockRejectedValueOnce(new Error("PRIVATE_DATABASE_DETAILS"));
+  await expect(f.runtime.invoke({ ...input, question: "Failed input" }, config())).rejects.toThrow(/^Conversation persistence or graph invocation failed$/);
+  failed.mockRestore();
+  const state = await f.runtime.invoke({ ...input, question: "Recovery" }, config());
+  expect(state.messages.map(m => m.getType())).toEqual(["human", "ai", "human", "ai"]);
+  expect(state.messages.slice(0, 2).map(m => m.id)).toEqual(previous);
+  expect(state.messages.at(-2).content).toBe("Recovery");
+  expect(f.factory).toHaveBeenCalledTimes(1);
+});
+
+it.each(["pending", "draft", "validated"])("checkpoint write failure at %s does not finalize a turn", async status => {
+  const f = fixture();
+  await f.runtime.invoke(input, config());
+  const put = f.persistence._saver.put.bind(f.persistence._saver);
+  const failure = vi.spyOn(f.persistence._saver, "put").mockImplementation((...args) => {
+    if (args[1].channel_values.status === status) throw new Error("PRIVATE_DATABASE_DETAILS");
+    return put(...args);
+  });
+  await expect(f.runtime.invoke({ ...input, question: "Failed input" }, config())).rejects.toThrow("invocation failed");
+  failure.mockRestore();
+  const state = (await f.runtime.getState(config())).values;
+  expect(state.messages.filter(m => m.getType() === "ai")).toHaveLength(1);
+  const recovered = await f.runtime.invoke({ ...input, question: "Recovery" }, config());
+  expect(recovered.messages.map(m => m.getType())).toEqual(["human", "ai", "human", "ai"]);
+  expect(recovered.messages.at(-2).content).toBe("Recovery");
+});
+
+it("shutdown and admission wait for a cancelled service to unwind", async () => {
+  const gate = deferred();
+  const entered = deferred();
+  const controller = new AbortController();
+  const f = fixture({}, { generate: async () => { entered.resolve(); await gate.promise; return "unfinished"; } });
+  const running = f.runtime.invoke(input, { ...config(), signal: controller.signal }).catch(error => error);
+  await entered.promise;
+  controller.abort();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const closing = f.runtime.close();
+  expect(f.persistence._pool.end).not.toHaveBeenCalled();
+  gate.resolve();
+  expect(await running).toBe(controller.signal.reason);
+  await closing;
+  expect(f.persistence._pool.end).toHaveBeenCalledTimes(1);
+});

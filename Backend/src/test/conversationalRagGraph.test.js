@@ -497,20 +497,23 @@ describe("cancellation boundaries", () => {
     expect((await graph.invoke(input(), config("cancel"))).status).toBe("complete");
   });
 
-  it("ignores late retrieval after cancellation, including after a same-thread retry completes", async () => {
+  it.each(["invoke", "stream"])("%s holds admission until cancelled retrieval unwinds and ignores its late result", async (method) => {
     let release;
     const blocked = new Promise((resolve) => { release = resolve; });
     const retrieve = vi.fn().mockImplementationOnce(() => blocked).mockResolvedValue([chunk("NEW_EVIDENCE")]);
     const { graph, generate } = fixture({ retrieve });
     const controller = new AbortController();
-    const running = graph.invoke(input(), config("cancel", { signal: controller.signal }));
+    const options = config("cancel", { signal: controller.signal });
+    const running = method === "invoke" ? graph.invoke(input(), options) : collect(graph.stream(input(), options));
     const rejected = expect(running).rejects.toThrow();
     await vi.waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
     controller.abort();
-    await rejected;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await expect(graph.invoke(input("Overlap"), config("cancel"))).rejects.toThrow("already running");
     expect(generate).not.toHaveBeenCalled();
-    const next = await graph.invoke(input("Retry"), config("cancel"));
     release([chunk("STALE_EVIDENCE")]);
+    await rejected;
+    const next = await graph.invoke(input("Retry"), config("cancel"));
     await new Promise((resolve) => setTimeout(resolve, 10));
     const state = (await graph.getState(config("cancel"))).values;
     expect(messages(state)).toEqual(messages(next));
@@ -532,7 +535,7 @@ describe("production bindings and tracing privacy", () => {
           message: new AIMessageChunk("PRIVATE_PARTIAL"),
           text: "PRIVATE_PARTIAL",
         });
-        throw new Error("provider failed");
+        throw new Error("provider failed PRIVATE_PROVIDER_DETAILS");
       }
     );
     const graph = createConversationalRagGraph({
@@ -548,7 +551,7 @@ describe("production bindings and tracing privacy", () => {
       updated: recorder.updated,
     });
     expect(payloads).not.toMatch(
-      /PRIVATE_PARTIAL|PRIVATE_EVIDENCE|Transcript context:|"messages"/
+      /PRIVATE_PARTIAL|PRIVATE_EVIDENCE|PRIVATE_PROVIDER_DETAILS|Transcript context:|"messages"/
     );
     expect(
       messages((await graph.getState(config("private-failure"))).values)

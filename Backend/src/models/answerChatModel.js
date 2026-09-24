@@ -58,9 +58,16 @@ export function createAnswerChatModel({ model } = {}) {
       signal?.throwIfAborted();
       // core 1.2.11 forwards RunnableConfig.signal to ChatGoogle 0.2.0's
       // Request signal. Preserve the iterator-level tracing shield above.
-      const chunks = await (signal
-        ? getModel().stream(messages, { signal })
-        : getModel().stream(messages));
+      const model = getModel();
+      // core 1.2.11's public stream() races iterator.next() against abort and
+      // can return before the provider unwinds. Consume our already-shielded
+      // iterator directly so service completion means local provider completion.
+      // The same signal still reaches ChatGoogle's HTTP Request. Injected test
+      // models retain their public stream interface.
+      const options = signal ? { signal } : undefined;
+      const chunks = model instanceof AnswerChatGoogle
+        ? model._streamIterator(messages, options)
+        : await (signal ? model.stream(messages, options) : model.stream(messages));
       for await (const chunk of chunks) {
         signal?.throwIfAborted();
         // LangChain's text accessor handles both strings and text content blocks,

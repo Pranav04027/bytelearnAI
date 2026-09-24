@@ -150,7 +150,17 @@ export function createConversationalRagGraph({
   const activeThreads = new Set();
   // Restore only the caller's manual trace around service calls. Graph/node
   // instrumentation runs in a disabled context; no global flags are changed.
-  const service = (fn) => withRunTree(execution.getStore()?.manualRun, fn);
+  const service = (fn) => {
+    const context = execution.getStore();
+    context?.signal?.throwIfAborted();
+    const operation = Promise.resolve().then(() => withRunTree(context?.manualRun, fn));
+    context.pending.add(operation);
+    // LangGraph races tasks against cancellation. Track the underlying service
+    // separately so admission/resource ownership outlives that early rejection.
+    operation.then(() => context.pending.delete(operation), () => context.pending.delete(operation));
+    return operation;
+  };
+  const drain = (context) => Promise.allSettled([...context.pending]);
   const checkCancelled = () => execution.getStore()?.signal?.throwIfAborted();
 
   const graph = new StateGraph(State)
@@ -319,6 +329,7 @@ export function createConversationalRagGraph({
   return Object.freeze({
     async invoke(input, options) {
       const context = {
+        pending: new Set(),
         manualRun: getCurrentRunTree(true),
         onToken: options?.onToken,
         signal: options?.signal,
@@ -329,11 +340,13 @@ export function createConversationalRagGraph({
           graph.invoke(turn.input, turn.config)
         );
       } finally {
+        await drain(context);
         turn.release();
       }
     },
     async *stream(input, options) {
       const context = {
+        pending: new Set(),
         manualRun: getCurrentRunTree(true),
         onToken: options?.onToken,
         signal: options?.signal,
@@ -354,6 +367,7 @@ export function createConversationalRagGraph({
         try {
           await execution.run(context, () => iterator?.return?.());
         } finally {
+          await drain(context);
           turn.release();
         }
       }

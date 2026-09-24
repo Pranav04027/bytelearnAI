@@ -119,11 +119,21 @@ const answerQuestionFromTranscript = async (req, res, next) => {
   if (req.aborted || res.destroyed) disconnect();
   const canWrite = () => !terminated && !signal.aborted && !res.destroyed && !res.writableEnded;
   const send = (event, payload) => {
-    if (canWrite()) writeSseEvent(res, event, payload);
+    if (!canWrite()) {
+      disconnect();
+      return;
+    }
+    try {
+      writeSseEvent(res, event, payload);
+    } catch {
+      // A failed socket write is a disconnect, not another writable SSE error.
+      disconnect();
+    }
   };
   const finish = (event, payload) => {
     if (!canWrite()) return;
     send(event, payload);
+    if (!canWrite()) return;
     terminated = true;
     res.end();
   };

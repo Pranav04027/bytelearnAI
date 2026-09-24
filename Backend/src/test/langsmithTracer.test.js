@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   trace,
   isLangSmithEnabled,
@@ -29,6 +29,7 @@ const enableTracing = () => {
 };
 
 afterEach(() => {
+  vi.restoreAllMocks();
   __resetClientForTesting();
   delete process.env.LANGSMITH_TRACING;
   delete process.env.LANGSMITH_API_KEY;
@@ -174,4 +175,18 @@ describe("langsmith tracer", () => {
     // The failing run was still created/traced.
     expect(created.some((r) => r.name === "ByteLearnAnswerRequest")).toBe(true);
   });
+});
+
+
+it("never uploads raw results when an output summarizer fails", async () => {
+  enableTracing();
+  const updates = [];
+  const { client } = recorder();
+  client.updateRun = async (_id, run) => { updates.push(run); };
+  __setClientForTesting(client);
+  const operation = vi.fn(async () => "PRIVATE_FULL_ANSWER");
+  expect(await trace("summary", operation, { outputs: () => { throw new Error("PRIVATE_PROMPT"); } })).toBe("PRIVATE_FULL_ANSWER");
+  expect(operation).toHaveBeenCalledTimes(1);
+  expect(updates).toHaveLength(1);
+  expect(JSON.stringify(updates)).not.toMatch(/PRIVATE_/);
 });

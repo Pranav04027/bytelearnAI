@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { Client } from "langsmith";
 import { traceable } from "langsmith/traceable";
@@ -7,9 +6,9 @@ import { traceable } from "langsmith/traceable";
 // Optional LangSmith observability for ByteLearn V2.
 //
 // This module is a thin, behavior-preserving instrumentation layer built on
-// LangSmith's recommended `traceable` API. Every failure degrades silently so that
-// core ByteLearn behavior
-// (retrieval, generation, SSE) is never affected.
+// LangSmith's `traceable` API. Optional instrumentation must not retry work or
+// replace the application's result/error. SDK background upload behavior is
+// version-dependent and covered separately from this wrapper's error boundary.
 //
 // ---------------------------------------------------------------------------
 
@@ -58,13 +57,9 @@ function getClient() {
     });
       return cachedClient;
       
-  } catch (err) {
+  } catch {
     clientInitFailed = true;
-    console.warn(
-      `[langsmith] tracing disabled, client init failed: ${
-        err?.message || err
-      }`
-    );
+    console.warn("[langsmith] tracing disabled, client initialization failed");
     return null;
   }
 }
@@ -79,8 +74,8 @@ function getClient() {
  *    (via traceable's AsyncLocalStorage context).
  *  - Spans are uploaded in the background; the caller never blocks on the
  *    network.
- *  - Errors thrown by `fn()` are recorded on the span and re-thrown, so callers
- *    observe exactly the same error they would without tracing.
+ *  - Operation failures record a static error on the span; callers still receive
+ *    the original exception.
  *  - Only the explicitly provided `inputs`/`outputs`/`metadata` are sent — the
  *    raw function arguments/return values (e.g. req/res, full matches, model
  *    answers) are never logged, so no secrets or large payloads leak.
@@ -130,37 +125,54 @@ export async function trace(name, fn, opts = {}) {
   }
 
   let latencyMs;
+  let operation;
+  // Memoize the work, not its trace: an instrumentation failure must never retry
+  // generation, retrieval or an HTTP response that already started.
+  const runOnce = () => operation ??= Promise.resolve().then(fn);
   const runFn = async () => {
     const start = Date.now();
     try {
-      return await fn();
+      return await runOnce();
+    } catch {
+      // Preserve the original error for the caller, but never upload a provider
+      // or driver error body (which can contain prompts, keys or SQL).
+      throw new Error("Traced operation failed");
     } finally {
       latencyMs = Date.now() - start;
     }
   };
 
-  const wrapped = traceable(runFn, {
-    name,
-    run_type: opts.runType || "chain",
-    project_name: PROJECT,
-    client,
-    metadata: opts.metadata || {},
-    tags: opts.tags || [],
-    // Log only the explicitly provided, safe inputs.
-    processInputs: () => opts.inputs ?? {},
-    // Never log the raw return (could be res, full matches, answers).
-    processOutputs: (raw) => {
-      const normalized = normalizeTraceOutput(raw);
-      const base =
-        typeof opts.outputs === "function"
-          ? opts.outputs(normalized)
-          : opts.outputs ?? {};
-      return { ...base, latencyMs };
-    },
-    ...(opts.invocationParams? { getInvocationParams: () => opts.invocationParams } : {}),
-  });
+  try {
+    const wrapped = traceable(runFn, {
+      name,
+      run_type: opts.runType || "chain",
+      project_name: PROJECT,
+      client,
+      metadata: opts.metadata || {},
+      tags: opts.tags || [],
+      // Log only the explicitly provided, safe inputs.
+      processInputs: () => opts.inputs ?? {},
+      // Never log the raw return (could be res, full matches, answers).
+      processOutputs: (raw) => {
+        try {
+          const normalized = normalizeTraceOutput(raw);
+          const base = typeof opts.outputs === "function"
+            ? opts.outputs(normalized)
+            : opts.outputs ?? {};
+          return { ...base, latencyMs };
+        } catch {
+          // LangSmith falls back to raw outputs when a processor throws.
+          return { latencyMs };
+        }
+      },
+      ...(opts.invocationParams ? { getInvocationParams: () => opts.invocationParams } : {}),
+    });
 
-  const result = await wrapped();
+    await wrapped();
+  } catch {
+    // Optional instrumentation may fail before or after work. runOnce preserves
+    // the original result/error and never repeats work or creates another root.
+  }
 
   // Finalization (createRun upload) runs in a background chain that is not
   // awaited by the caller, so production never blocks on telemetry. The only
@@ -171,7 +183,7 @@ export async function trace(name, fn, opts = {}) {
     await new Promise((r) => setTimeout(r, 0));
   }
 
-  return result;
+  return runOnce();
 }
 
 export { randomUUID };

@@ -1,7 +1,13 @@
 import Supermemory from 'supermemory';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const sm = new Supermemory({ apiKey: process.env.SUPERMEMORY_API_KEY });
+// Quiz memory is optional for application startup and public transcript RAG.
+// Construct only when an existing quiz memory operation actually needs it.
+let sm;
+const getMemory = () => {
+  sm ??= new Supermemory({ apiKey: process.env.SUPERMEMORY_API_KEY });
+  return sm;
+};
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
@@ -20,7 +26,7 @@ const aiModel = genAI?.getGenerativeModel({
 
 export const saveInMem = async (userId, content) => {
     try {
-      await sm.add({
+      await getMemory().add({
           content: content,
           containerTags: [`user_${userId}`],
           metadata: { timestamp: new Date().toISOString() } 
@@ -61,7 +67,7 @@ export async function getImpInfo(question) {
 }
 
 export async function retriveFromMem(userId) {
-  const memories = await sm.search.documents({
+  const memories = await getMemory().search.documents({
     q: "What technical concepts or topics does this student struggle with?",
     containerTags: [`user_${userId}`],
   });
