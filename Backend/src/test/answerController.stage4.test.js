@@ -180,19 +180,50 @@ describe("public conversational answer", () => {
     expect(await aiMessages(input)).toHaveLength(ending === "success" ? 2 : 1);
   });
 
-  it("keeps real HTTP routing anonymous and streams after the POST body has completed", async () => {
+  it("keeps HTTP Q1/Q2 anonymous, retrieves fresh contextual evidence and streams one completion per turn", async () => {
+    // Synthetic evidence: this checks HTTP integration, not a live video/provider.
+    const first = body();
+    const questions = [first.question, "How does it work?"];
+    retrieveTranscriptChunksDense
+      .mockResolvedValueOnce([{ id: "http-q1", content: "Closures retain lexical bindings.", chunkIndex: 1,
+        startMs: 12000, endMs: 18000, similarity: 0.9 }])
+      .mockResolvedValueOnce([{ id: "http-q2", content: "A closure reads its captured lexical binding when called.", chunkIndex: 2,
+        startMs: 24000, endMs: 30000, similarity: 0.9 }]);
     const app = express();
     app.use(express.json());
     app.use("/api/v1/embeddings", router);
     const server = app.listen(0, "127.0.0.1");
     await once(server, "listening");
     try {
-      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/embeddings/answer`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body()),
-      });
-      expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toContain("text/event-stream");
-      expect(await response.text()).toContain("event: done");
+      for (const [index, question] of questions.entries()) {
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/embeddings/answer`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...first, question }),
+        });
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toContain("text/event-stream");
+        const events = (await response.text()).trim().split("\n\n").map(frame => {
+          const [event, data] = frame.split("\n");
+          return { event: event.slice(7), data: JSON.parse(data.slice(6)) };
+        });
+        expect(events.map(e => e.event)).toEqual(["start", "token", "token", "done"]);
+        expect(events.at(-1).data).toEqual({
+          answer: "Supported answer [Source 1].",
+          sources: [{ sourceId: 1, chunkIndex: index + 1,
+            startMs: index === 0 ? 12000 : 24000, endMs: index === 0 ? 18000 : 30000, similarity: 0.9 }],
+        });
+      }
+      expect(retrieveTranscriptChunksDense.mock.calls.map(args => args.slice(0, 2))).toEqual([
+        [first.videoId, first.question], [first.videoId, `${first.question}\n${questions[1]}`],
+      ]);
+      const prompt = ChatGoogle.prototype._streamResponseChunks.mock.calls[1][0];
+      expect(prompt.map(message => message.getType())).toEqual(["system", "human", "human"]);
+      expect(prompt[1].content).toContain(first.question);
+      expect(prompt[2].content).toContain("A closure reads its captured lexical binding when called.");
+      expect(JSON.stringify(prompt)).not.toContain("Closures retain lexical bindings.");
+      expect(JSON.stringify(prompt)).not.toContain("Supported answer");
+      expect((await conversationalRagRuntime.getState(thread(first))).values.messages.map(m => m.getType()))
+        .toEqual(["human", "ai", "human", "ai"]);
     } finally { await new Promise((resolve) => server.close(resolve)); }
   });
 
